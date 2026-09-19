@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build artifacts
+dist/
+build/
+out/
+.next/
+
+# Firebase emulators and logs
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+functions-debug.log*
+hosting-debug.log*
+pubsub-debug.log*
+ui-debug.log*
+
+# Environment and secrets (STRICT: never commit real env files or private keys)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*service-account*.json
+*credentials*.json
+firebase-adminsdk*.json
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing and coverage
+coverage/
+.nyc_output/

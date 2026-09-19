@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-sales-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant WhatsApp sales & support AI SaaS platform with Gemini and self-service dashboard",
+  "author": "Autonomous Engineer",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "apps/*",
+    "functions"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:rules": "npm run test:rules --workspace=functions --if-present",
+    "audit": "npm audit --audit-level=high"
+  }
+}
