@@ -190,3 +190,28 @@ This document records the architectural and technical decisions made during the 
     número, mas quem reconcilia o formato é o `metaSender`.
   - Fica registrado que `#131030` deve ser lido como "formato do destinatário não bate
     com o cadastrado", não como problema de token, versão de API ou runtime.
+
+### Adendo: `#130497` é um bloqueio de conta, não de código
+
+Depois que o `#131030` foi corrigido, a API passou a aceitar o envio (HTTP 200 com
+`wamid`), mas as mensagens continuavam não chegando. O motivo só apareceu quando o
+webhook passou a logar os callbacks de status da Meta, que chegam **sem** o campo
+`messages` e antes caíam no early return em silêncio:
+
+```
+status: failed
+code: 130497
+"Business account is restricted from messaging users in this country."
+recipient_id: 555181186641
+```
+
+São dois problemas independentes e é importante não confundi-los:
+
+- `#131030` — formato do destinatário não bate com a allowed list. **Resolvido em código.**
+- `#130497` — a conta business está restrita de enviar para o país do destinatário.
+  **Resolve-se no Meta Business Manager** (Verificação de Negócio, restrições de
+  política, países permitidos da WABA). Nenhuma alteração de código muda esse resultado.
+
+O `recipient_id` do callback (`555181186641`, 12 dígitos) confirma que a Meta normaliza
+sozinha o número que enviamos com o 9º dígito — ou seja, enviar na forma de 13 dígitos
+satisfaz o gate da allowed list sem prejudicar a entrega.
