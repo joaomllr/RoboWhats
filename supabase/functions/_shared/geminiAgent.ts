@@ -66,11 +66,19 @@ ${historyFormatted}
 
 Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // A partir de 2026 o Google emite chaves no novo formato "AQ." (Auth key), que substitui
+    // as antigas "AIza..." (Standard key). Chaves "AQ." exigem o header x-goog-api-key — o
+    // parâmetro de query ?key= (usado pelas chaves antigas) retorna 401
+    // ACCESS_TOKEN_TYPE_UNSUPPORTED para esse formato. Enviamos sempre via header, que
+    // funciona para os dois formatos de chave.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: promptText }] }],
         generationConfig: {
