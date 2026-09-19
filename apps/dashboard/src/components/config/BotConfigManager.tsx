@@ -88,17 +88,17 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
           <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Bot className="w-6 h-6 text-brand-600" />
+            <Bot className="w-6 h-6 text-fluxi-blue" />
             <span>Configuração do Motor de Atendimento & Vendas</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Parâmetros dinâmicos lidos pelo backend serverless em tempo de execução
+            Personalize como seu robô comercial conversa, qualifica clientes e direciona atendimentos em tempo real.
           </p>
         </div>
 
         <button
           type="submit"
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 active:scale-95 text-white text-sm font-bold rounded-xl shadow-md shadow-brand-600/25 transition-all self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-fluxi-green hover:bg-emerald-600 active:scale-95 text-white text-sm font-bold rounded-xl shadow-md shadow-fluxi-green/20 transition-all self-start sm:self-auto"
         >
           {savedSuccess ? (
             <>
@@ -117,7 +117,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
       {/* 1. Persona da IA */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950 text-brand-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-fluxi-blue/10 text-fluxi-blue flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -140,7 +140,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
                   persona: { ...config.persona, botName: e.target.value },
                 })
               }
-              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-fluxi-blue"
             />
           </div>
 
@@ -156,7 +156,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
                   persona: { ...config.persona, tone: e.target.value as any },
                 })
               }
-              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-fluxi-blue"
             >
               <option value="consultative">Consultivo (Orientado à solução e qualificação)</option>
               <option value="professional">Profissional & Formal</option>
@@ -178,7 +178,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
                   persona: { ...config.persona, companyDescription: e.target.value },
                 })
               }
-              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-fluxi-blue"
             />
           </div>
 
@@ -195,7 +195,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
                   persona: { ...config.persona, salesPitch: e.target.value },
                 })
               }
-              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-fluxi-blue resize-none"
             />
           </div>
         </div>
@@ -268,7 +268,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
               }
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fluxi-green"></div>
           </label>
         </div>
 
@@ -409,7 +409,7 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">{stateDef.description}</p>
-              <div className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold">
+              <div className="text-[10px] text-fluxi-blue font-semibold">
                 Transições: {stateDef.nextPossibleStates.join(" → ")}
               </div>
             </div>

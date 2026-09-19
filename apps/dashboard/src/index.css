@@ -2,9 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --fluxi-blue: #2D5BFF;
+  --fluxi-green: #00C48C;
+  --fluxi-graphite: #1A1D29;
+  --fluxi-cloud: #F4F6FB;
+  --fluxi-coral: #FF6B5B;
+  --whatsapp-accent: #00D26A;
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--fluxi-cloud);
+    color: var(--fluxi-graphite);
+  }
+
+  .dark body {
+    background-color: var(--fluxi-graphite);
+    color: #F4F6FB;
   }
 }
 

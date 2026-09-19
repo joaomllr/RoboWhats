@@ -121,3 +121,31 @@ This document records the architectural and technical decisions made during the 
   - Strict multi-tenant isolation enforced at the Postgres database engine level via RLS policies (`contacts_isolated_by_tenant_select`, `tenant_users_can_read_own_membership`, etc.) and tested against Postgres.
   - `phone_number_index` and `usage` tables completely blocked from direct client access via empty RLS policies (accessible exclusively via `service_role` in Edge Functions).
 
+---
+
+## ADR-010: Identidade Visual Fluxi, Arquitetura de Marca e Design Tokens
+
+- **Status**: Accepted
+- **Context**:
+  - The product transitions from an unbranded standalone tool ("robô de WhatsApp SaaS") to a core catalog offering of **Fluxi**, an umbrella brand encompassing modern web development, business workflow automations, and intelligent conversational agents.
+  - End users are Brazilian small and medium businesses (SMBs, clínicas, imobiliárias, e-commerces, prestadores de serviços) who value clarity, confidence, and speed over technical developer jargon.
+- **Decision**:
+  - **Brand Architecture**:
+    - **Mother Brand**: `Fluxi` (Tagline: *"Sites • Automações • WhatsApp Bots"*).
+    - **Product Designation**: `Fluxi Bots` (or *"Robô de WhatsApp by Fluxi"*).
+    - Mother brand logo with wordmark and product badge displayed prominently in public headers, landing pages, and dashboard navigation.
+  - **Design Tokens & Palette**:
+    - `--fluxi-blue: #2D5BFF`: Primary brand tone. Applied to navigation headers, badges, highlights, links, and focused interactive states.
+    - `--fluxi-green: #00C48C`: Primary action/conversion tone. Exclusively applied to main CTAs, conversion buttons, active operational statuses, and positive sales metrics.
+    - `--fluxi-graphite: #1A1D29`: Deep dark base. Applied to primary typography in light mode and dark mode background canvases.
+    - `--fluxi-cloud: #F4F6FB`: Clean neutral canvas. Applied to light mode backgrounds and secondary panels.
+    - `--fluxi-coral: #FF6B5B`: Urgency/alert accent. Strictly reserved for warnings, system errors, and high-urgency business moments (such as 🔥 *Leads Quentes* requiring immediate sales attention). Never applied as arbitrary decorative coloring.
+    - **Channel Accent Isolation**: The native WhatsApp green (`#00D26A`) is strictly isolated to specific WhatsApp channel indicators (e.g. channel badges, chat bubble indicators), ensuring the overall application chrome is unmistakably *Fluxi*.
+  - **Tone of Voice**:
+    - Direct, confident, and commercial.
+    - Strict avoidance of backend/developer jargon in customer-facing views: terminology such as "endpoint", "webhook", "payload", "tenant", "RLS" replaced with user-friendly terms like "conexão", "notificação", "empresa", "isolamento e segurança".
+- **Consequences**:
+  - Unified aesthetic across landing page, onboarding wizard, inbox, analytics, and bot settings.
+  - Strengthened cross-selling potential between Fluxi Bots, Fluxi Sites, and Fluxi Automações.
+
+

@@ -5,21 +5,41 @@ export default {
   theme: {
     extend: {
       colors: {
+        fluxi: {
+          blue: "#2D5BFF",         /* primary brand color - header, links, highlights */
+          blueHover: "#2048E0",
+          blueLight: "#EBF0FF",
+          blueDark: "#1A3EC7",
+          green: "#00C48C",        /* action/success - primary buttons, CTA, active/completed status */
+          greenHover: "#00AD7B",
+          greenLight: "#E6F9F3",
+          greenDark: "#009167",
+          graphite: "#1A1D29",     /* primary text / dark mode background */
+          graphiteLight: "#25293A",
+          graphiteCard: "#1F2332",
+          graphiteBorder: "#2E3347",
+          cloud: "#F4F6FB",        /* light mode background */
+          cloudCard: "#FFFFFF",
+          cloudBorder: "#E2E8F0",
+          coral: "#FF6B5B",        /* ONLY alerts, errors, urgency - never decorative */
+          coralLight: "#FFF0EE",
+        },
         brand: {
-          50: "#eefbf4",
-          100: "#d6f5e3",
-          200: "#b0ebca",
-          300: "#7bdca8",
-          400: "#42c381",
-          500: "#1da863",
-          600: "#12874e",
-          700: "#106b40",
-          800: "#115535",
-          900: "#0f462c",
-          950: "#062719",
+          50: "#EBF0FF",
+          100: "#D6E2FF",
+          200: "#B3C7FF",
+          300: "#8FAEFF",
+          400: "#5C85FF",
+          500: "#2D5BFF",
+          600: "#2048E0",
+          700: "#1A3EC7",
+          800: "#1430A3",
+          900: "#0F247D",
+          950: "#091652",
         },
         whatsapp: {
-          light: "#25D366",
+          accent: "#00D26A",
+          light: "#00D26A",
           dark: "#075E54",
           teal: "#128C7E",
           chatBg: "#EFEAE2",

@@ -72,8 +72,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     switch (score) {
       case "quente":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-            <Flame className="w-3 h-3 text-rose-500 fill-current" />
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-fluxi-coral/10 text-fluxi-coral dark:bg-fluxi-coral/20 dark:text-fluxi-coral border border-fluxi-coral/30">
+            <Flame className="w-3 h-3 text-fluxi-coral fill-current" />
             <span>Quente</span>
           </span>
         );
@@ -86,7 +86,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
       case "frio":
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-700 dark:bg-cyan-950/80 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
             <span>Frio</span>
           </span>
         );
@@ -127,7 +127,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               placeholder="Buscar por nome ou WhatsApp..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-fluxi-blue"
             />
           </div>
 
@@ -137,7 +137,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               onClick={() => setAgentFilter("all")}
               className={`py-1.5 px-2 rounded-lg transition-all ${
                 agentFilter === "all"
-                  ? "bg-white dark:bg-slate-900 text-brand-600 shadow-sm"
+                  ? "bg-white dark:bg-slate-900 text-fluxi-blue shadow-sm"
                   : "text-slate-600 dark:text-slate-400"
               }`}
             >
@@ -147,22 +147,22 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               onClick={() => setAgentFilter("ai")}
               className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 agentFilter === "ai"
-                  ? "bg-white dark:bg-slate-900 text-brand-600 shadow-sm"
+                  ? "bg-white dark:bg-slate-900 text-fluxi-blue shadow-sm"
                   : "text-slate-600 dark:text-slate-400"
               }`}
             >
-              <Bot className="w-3.5 h-3.5 text-brand-500" />
+              <Bot className="w-3.5 h-3.5 text-fluxi-blue" />
               <span>IA ({aiHandledCount})</span>
             </button>
             <button
               onClick={() => setAgentFilter("human")}
               className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 agentFilter === "human"
-                  ? "bg-white dark:bg-slate-900 text-brand-600 shadow-sm"
+                  ? "bg-white dark:bg-slate-900 text-fluxi-blue shadow-sm"
                   : "text-slate-600 dark:text-slate-400"
               }`}
             >
-              <User className="w-3.5 h-3.5 text-blue-500" />
+              <User className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
               <span>Humano ({humanHandledCount})</span>
             </button>
           </div>
@@ -183,7 +183,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               onClick={() => setFunnelFilter("novo")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
                 funnelFilter === "novo"
-                  ? "bg-blue-600 text-white"
+                  ? "bg-fluxi-blue text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
@@ -193,7 +193,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               onClick={() => setFunnelFilter("qualificando")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
                 funnelFilter === "qualificando"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-amber-500 text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
@@ -203,18 +203,18 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               onClick={() => setFunnelFilter("lead_quente")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium flex items-center gap-1 transition-all ${
                 funnelFilter === "lead_quente"
-                  ? "bg-rose-600 text-white"
+                  ? "bg-fluxi-coral text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
-              <Flame className="w-3 h-3 text-rose-500" />
+              <Flame className="w-3 h-3 text-white fill-current" />
               <span>Leads Quentes</span>
             </button>
             <button
               onClick={() => setFunnelFilter("cliente")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
                 funnelFilter === "cliente"
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-fluxi-green text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
@@ -248,7 +248,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   onClick={() => setSelectedContactId(contact.id)}
                   className={`p-3.5 cursor-pointer transition-colors relative flex items-start gap-3 ${
                     isSelected
-                      ? "bg-brand-50/70 dark:bg-brand-950/40 border-l-4 border-brand-600"
+                      ? "bg-fluxi-blue/5 dark:bg-fluxi-blue/15 border-l-4 border-fluxi-blue"
                       : "hover:bg-slate-100/60 dark:hover:bg-slate-800/40"
                   }`}
                 >
@@ -264,8 +264,8 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <div
                       className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] text-white shadow-sm ${
                         contact.assignedAgent === "ai"
-                          ? "bg-brand-600"
-                          : "bg-blue-600"
+                          ? "bg-fluxi-blue"
+                          : "bg-slate-700"
                       }`}
                       title={
                         contact.assignedAgent === "ai"
@@ -345,7 +345,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     activeContact.assignedAgent === "ai"
                       ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 hover:bg-amber-200"
-                      : "bg-brand-100 dark:bg-brand-950 text-brand-800 dark:text-brand-300 hover:bg-brand-200"
+                      : "bg-fluxi-blue/10 dark:bg-fluxi-blue/20 text-fluxi-blue hover:bg-fluxi-blue/20"
                   }`}
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -438,11 +438,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     ? "O robô está respondendo automaticamente. Digite para responder como humano..."
                     : "Digite sua resposta comercial..."
                 }
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-fluxi-blue"
               />
               <button
                 type="submit"
-                className="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all"
+                className="p-2.5 rounded-xl bg-fluxi-green hover:bg-emerald-600 active:scale-95 text-white shadow-sm shadow-fluxi-green/20 transition-all"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -469,7 +469,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
                 }
                 alt={activeContact.name || "Contato"}
-                className="w-16 h-16 rounded-full mx-auto object-cover border-2 border-brand-500 shadow-sm mb-3"
+                className="w-16 h-16 rounded-full mx-auto object-cover border-2 border-fluxi-blue shadow-sm mb-3"
               />
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {activeContact.name}
@@ -481,7 +481,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-brand-500" />
+                  <Sparkles className="w-3.5 h-3.5 text-fluxi-blue" />
                   <span>Lead Scoring IA</span>
                 </span>
                 {getScoreBadge(activeContact.lead_score)}

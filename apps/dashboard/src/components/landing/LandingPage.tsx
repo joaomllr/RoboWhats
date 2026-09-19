@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  MessageSquare,
   Bot,
   Flame,
   Zap,
@@ -28,7 +27,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [simMessages, setSimMessages] = useState<Array<{ sender: "user" | "bot"; text: string }>>([
     {
       sender: "bot",
-      text: "Olá! 👋 Sou a IA de atendimento da AlphaTech. Como posso impulsionar suas vendas hoje?",
+      text: "Olá! 👋 Sou o assistente virtual inteligente da Fluxi. Como posso impulsionar as vendas do seu negócio hoje?",
     },
   ]);
   const [simInput, setSimInput] = useState("");
@@ -72,11 +71,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         newScore = "quente";
         reason = "Solicitou transbordo para consultor comercial especializado";
         botReply =
-          "Perfeito! Já notifiquei um de nossos executivos de vendas que entrará em contato em instantes.";
+          "Perfeito! Já notifiquei um de nossos consultores comerciais que entrará em contato em instantes.";
       } else if (lower.includes("oi") || lower.includes("olá") || lower.includes("boa tarde")) {
         newScore = "frio";
         reason = "Saudação de topo de funil ❄️";
-        botReply = "Olá! Seja muito bem-vindo. Gostaria de ver uma demonstração de como qualificamos leads no WhatsApp?";
+        botReply = "Olá! Seja muito bem-vindo à Fluxi. Gostaria de ver uma demonstração de como qualificamos leads no WhatsApp?";
       }
 
       setCurrentScore(newScore);
@@ -100,35 +99,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen bg-fluxi-cloud dark:bg-fluxi-graphite text-fluxi-graphite dark:text-slate-100 transition-colors">
       {/* 1. Header Navigation */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800">
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-white/90 dark:bg-fluxi-graphite/90 border-b border-slate-200 dark:border-fluxi-graphiteBorder">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-whatsapp-light flex items-center justify-center text-white shadow-md shadow-brand-500/20">
-              <MessageSquare className="w-6 h-6" />
-            </div>
+            <img
+              src="/logo/icon-rounded-512.png"
+              alt="Fluxi Logo"
+              className="w-9 h-9 rounded-xl object-contain shadow-xs"
+            />
             <div>
-              <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-brand-700 to-whatsapp-teal dark:from-white dark:via-brand-400 dark:to-whatsapp-light bg-clip-text text-transparent">
-                WhatsApp Sales Hub
-              </span>
-              <span className="hidden sm:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-300">
-                Oficial Meta API
-              </span>
+              <div className="flex items-center gap-2 leading-none">
+                <span className="text-xl font-extrabold tracking-tight text-fluxi-graphite dark:text-white">
+                  FLUXI
+                </span>
+                <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-fluxi-blue text-white uppercase tracking-wider">
+                  Bots
+                </span>
+                <span className="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-fluxi-greenLight text-fluxi-green dark:bg-fluxi-green/10 dark:text-fluxi-green border border-fluxi-green/30">
+                  WhatsApp Oficial
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-slate-400 dark:text-slate-400 tracking-tight mt-0.5 hidden md:block">
+                Sites • Automações • WhatsApp Bots
+              </p>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
-            <a href="#diferenciais" className="hover:text-brand-600 transition-colors">
+            <a href="#diferenciais" className="hover:text-fluxi-blue transition-colors">
               Diferenciais
             </a>
-            <a href="#simulador" className="hover:text-brand-600 transition-colors">
+            <a href="#simulador" className="hover:text-fluxi-blue transition-colors">
               Simulador IA
             </a>
-            <a href="#planos" className="hover:text-brand-600 transition-colors">
+            <a href="#planos" className="hover:text-fluxi-blue transition-colors">
               Planos & Preços
             </a>
-            <a href="#seguranca" className="hover:text-brand-600 transition-colors">
+            <a href="#seguranca" className="hover:text-fluxi-blue transition-colors">
               Segurança
             </a>
           </nav>
@@ -136,13 +145,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={onOpenDashboardDemo}
-              className="text-xs sm:text-sm font-semibold px-3 py-2 text-slate-700 dark:text-slate-200 hover:text-brand-600 transition-colors"
+              className="text-xs sm:text-sm font-semibold px-3 py-2 text-slate-700 dark:text-slate-200 hover:text-fluxi-blue transition-colors"
             >
               Acessar Painel Demo
             </button>
             <button
               onClick={() => handleOpenCheckout("pro")}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 rounded-lg shadow-sm shadow-brand-600/30 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-fluxi-green hover:bg-fluxi-greenHover active:scale-95 rounded-xl shadow-sm shadow-fluxi-green/30 transition-all"
             >
               <Zap className="w-4 h-4" />
               <span>Assinar Plano</span>
@@ -153,79 +162,79 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* 2. Hero Section */}
       <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(45rem_50rem_at_top,theme(colors.brand.100),transparent)] dark:bg-[radial-gradient(45rem_50rem_at_top,theme(colors.brand.950),transparent)] opacity-50" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(45rem_50rem_at_top,rgba(45,91,255,0.08),transparent)] dark:bg-[radial-gradient(45rem_50rem_at_top,rgba(45,91,255,0.15),transparent)] opacity-80" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 dark:bg-brand-950/60 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-semibold mb-6 animate-pulse">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-fluxi-blueLight border border-fluxi-blue/20 dark:bg-fluxi-blue/10 dark:border-fluxi-blue/30 text-fluxi-blue text-xs font-semibold mb-6">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Potencializado por Google Gemini 3.5 & Meta Cloud API</span>
+              <span>Fluxi Bots • Inteligência Artificial Comercial & Meta Oficial</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight">
               Transforme seu WhatsApp em uma{" "}
-              <span className="bg-gradient-to-r from-brand-600 via-whatsapp-teal to-brand-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-fluxi-blue via-fluxi-green to-fluxi-blue bg-clip-text text-transparent">
                 máquina autônoma de vendas
               </span>
             </h1>
 
             <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-300 leading-relaxed">
-              O primeiro robô comercial com <strong>IA Generativa híbrida</strong> que entende linguagem natural,
-              qualifica leads em tempo real (Frio, Morno, Quente) e recupera conversas paradas dentro da janela gratuita da Meta.
+              O robô comercial inteligente da <strong>Fluxi</strong> que atende seus clientes em segundos,
+              qualifica o interesse de compra em tempo real e recupera conversas paradas no momento certo.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 onClick={() => handleOpenCheckout("pro")}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-bold text-white bg-brand-600 hover:bg-brand-700 active:scale-95 rounded-xl shadow-lg shadow-brand-600/25 transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-bold text-white bg-fluxi-green hover:bg-fluxi-greenHover active:scale-95 rounded-xl shadow-lg shadow-fluxi-green/25 transition-all"
               >
                 <span>Começar Agora com 7 Dias Grátis</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
                 onClick={onOpenDashboardDemo}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-fluxi-graphiteLight hover:bg-slate-100 dark:hover:bg-fluxi-graphiteCard rounded-xl border border-slate-200 dark:border-fluxi-graphiteBorder transition-all"
               >
-                <Bot className="w-5 h-5 text-brand-600" />
-                <span>Explorar Painel Interativo</span>
+                <Bot className="w-5 h-5 text-fluxi-blue" />
+                <span>Explorar Painel Demo</span>
               </button>
             </div>
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                <span>Sem risco de banimento (API Oficial)</span>
+                <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                <span>Conexão oficial com a Meta (sem risco de bloqueio)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                <span>Embedded Signup em 3 minutos</span>
+                <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                <span>Ativação simples e rápida em minutos</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                <span>Janela de 24h a R$ 0,00</span>
+                <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                <span>Respostas gratuitas dentro da janela oficial de 24h</span>
               </div>
             </div>
           </div>
 
           {/* 3. Live Interactive Bot Simulator Widget */}
           <div id="simulador" className="mt-16 max-w-4xl mx-auto">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="bg-slate-900 text-white px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-white dark:bg-fluxi-graphiteCard rounded-2xl shadow-2xl border border-slate-200 dark:border-fluxi-graphiteBorder overflow-hidden">
+              <div className="bg-fluxi-graphite text-white px-6 py-4 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+                  <div className="w-3 h-3 rounded-full bg-fluxi-green animate-ping" />
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-2">
                       <span>Simulador Interativo em Tempo Real</span>
-                      <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-slate-800 text-brand-400">
-                        Gemini 3.5 Flash-Lite
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-fluxi-graphiteLight text-fluxi-blueLight border border-fluxi-blue/30">
+                        Fluxi IA Inteligente
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400">Digite uma mensagem como se fosse seu cliente</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-                  <span className="text-xs text-slate-300">Lead Scoring em tempo real:</span>
+                <div className="flex items-center gap-2 bg-fluxi-graphiteLight/80 px-3 py-1.5 rounded-lg border border-fluxi-graphiteBorder">
+                  <span className="text-xs text-slate-300">Intenção de Compra:</span>
                   <span
                     className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider flex items-center gap-1 ${
                       currentScore === "quente"
@@ -242,7 +251,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Chat Canvas */}
-              <div className="p-4 sm:p-6 bg-slate-100 dark:bg-slate-950/60 min-h-[280px] max-h-[380px] overflow-y-auto space-y-3">
+              <div className="p-4 sm:p-6 bg-fluxi-cloud dark:bg-fluxi-graphite min-h-[280px] max-h-[380px] overflow-y-auto space-y-3">
                 {simMessages.map((msg, idx) => (
                   <div
                     key={idx}
@@ -251,8 +260,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <div
                       className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                         msg.sender === "user"
-                          ? "bg-brand-600 text-white rounded-br-none"
-                          : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-none border border-slate-200 dark:border-slate-700"
+                          ? "bg-fluxi-blue text-white rounded-br-none"
+                          : "bg-white dark:bg-fluxi-graphiteCard text-slate-800 dark:text-slate-100 rounded-bl-none border border-slate-200 dark:border-fluxi-graphiteBorder"
                       }`}
                     >
                       <p>{msg.text}</p>
@@ -262,23 +271,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Status footer inside card */}
-              <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <div className="px-4 py-2.5 bg-slate-50 dark:bg-fluxi-graphiteCard border-t border-slate-200 dark:border-fluxi-graphiteBorder text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
                 <span>💡 Diagnóstico da IA: {scoreReason}</span>
-                <span className="hidden sm:inline">Latência: ~350ms</span>
+                <span className="hidden sm:inline font-semibold text-fluxi-green">Resposta em &lt; 1 segundo</span>
               </div>
 
               {/* Chat Input */}
-              <form onSubmit={handleSimSend} className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+              <form onSubmit={handleSimSend} className="p-3 bg-white dark:bg-fluxi-graphiteCard border-t border-slate-200 dark:border-fluxi-graphiteBorder flex gap-2">
                 <input
                   type="text"
                   value={simInput}
                   onChange={(e) => setSimInput(e.target.value)}
-                  placeholder="Ex: 'Quanto custa para 3.000 clientes?' ou 'Gostaria de fechar hoje'"
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  placeholder="Ex: 'Qual o valor dos planos?' ou 'Quero falar com um vendedor agora'"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-fluxi-graphiteBorder bg-slate-50 dark:bg-fluxi-graphite text-sm focus:outline-none focus:ring-2 focus:ring-fluxi-blue"
                 />
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl transition-all"
+                  className="px-6 py-2.5 bg-fluxi-green hover:bg-fluxi-greenHover active:scale-95 text-white text-sm font-bold rounded-xl shadow-sm shadow-fluxi-green/20 transition-all"
                 >
                   Enviar
                 </button>
@@ -289,55 +298,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 4. Differentials Section (Market Proven) */}
-      <section id="diferenciais" className="py-20 bg-slate-50 dark:bg-slate-900/50 border-y border-slate-200 dark:border-slate-800">
+      <section id="diferenciais" className="py-20 bg-white dark:bg-fluxi-graphite/40 border-y border-slate-200 dark:border-fluxi-graphiteBorder">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
-              Validados contra o Mercado (Wati, respond.io, Blip)
+            <h2 className="text-xs font-bold uppercase tracking-widest text-fluxi-blue dark:text-fluxi-blueLight">
+              Automação e Presença Digital Fluxi
             </h2>
             <p className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Por que somos a escolha vencedora em vendas via WhatsApp
+              Por que a Fluxi é a escolha certa para o seu WhatsApp
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-brand-100 dark:bg-brand-950 text-brand-600 flex items-center justify-center mb-5">
+            <div className="p-6 rounded-2xl bg-fluxi-cloud dark:bg-fluxi-graphiteCard border border-slate-200 dark:border-fluxi-graphiteBorder shadow-xs hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-fluxi-blueLight dark:bg-fluxi-blue/10 text-fluxi-blue flex items-center justify-center mb-5">
                 <Bot className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold mb-2">Motor Híbrido IA + Fluxo</h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                A flexibilidade da IA Generativa para compreender qualquer mensagem sem engessar, aliada a uma máquina de estados que garante etapas de qualificação rigorosas.
+                A flexibilidade da IA Generativa para compreender qualquer mensagem sem engessar, aliada a etapas comerciais que garantem a qualificação do cliente.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center mb-5">
+            <div className="p-6 rounded-2xl bg-fluxi-cloud dark:bg-fluxi-graphiteCard border border-slate-200 dark:border-fluxi-graphiteBorder shadow-xs hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center mb-5">
                 <Flame className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold mb-2">Lead Scoring em Tempo Real</h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Tags automáticas de Frio ❄️, Morno 🌤️ e Quente 🔥 visíveis no painel de inbox para que seus atendentes humanos priorizem quem está com o cartão na mão.
+                Classificação automática de Frio ❄️, Morno 🌤️ e Quente 🔥 visíveis na caixa de entrada para que sua equipe atenda primeiro quem tem pressa para comprar.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center mb-5">
+            <div className="p-6 rounded-2xl bg-fluxi-cloud dark:bg-fluxi-graphiteCard border border-slate-200 dark:border-fluxi-graphiteBorder shadow-xs hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mb-5">
                 <Clock className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold mb-2">Recuperação Proativa 24h</h3>
+              <h3 className="text-lg font-bold mb-2">Recuperação Automática 24h</h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                O cliente parou de responder no meio da proposta? O robô envia reengajamento inteligente antes de expirar a janela gratuita de 24 horas da Meta.
+                O cliente parou de responder durante a conversa? O robô envia uma mensagem amigável de acompanhamento no momento ideal.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center mb-5">
+            <div className="p-6 rounded-2xl bg-fluxi-cloud dark:bg-fluxi-graphiteCard border border-slate-200 dark:border-fluxi-graphiteBorder shadow-xs hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center mb-5">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold mb-2">Embedded Signup Meta</h3>
+              <h3 className="text-lg font-bold mb-2">Conexão Oficial Meta</h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Esqueça leitura de QR code frágil que cai a cada 2 dias. Seu cliente conecta o próprio WhatsApp Business oficial em 3 minutos direto pelo painel.
+                Esqueça leituras de QR code que desconectam toda semana. Conecte o número da sua empresa com segurança e estabilidade corporativa oficial.
               </p>
             </div>
           </div>
@@ -345,20 +354,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 5. Pricing Tiers Section */}
-      <section id="planos" className="py-20">
+      <section id="planos" className="py-20 bg-fluxi-cloud dark:bg-fluxi-graphite">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-fluxi-blue dark:text-fluxi-blueLight">
               Planos Transparentes e Previsíveis
             </h2>
             <p className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Comece pequeno e escale conforme suas vendas explodem
+              Comece agora e escale com mais vendas no WhatsApp
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* Starter Plan */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-8 bg-white dark:bg-slate-900 flex flex-col justify-between hover:border-brand-400 transition-colors">
+            <div className="rounded-2xl border border-slate-200 dark:border-fluxi-graphiteBorder p-8 bg-white dark:bg-fluxi-graphiteCard flex flex-col justify-between hover:border-fluxi-blue transition-colors shadow-xs">
               <div>
                 <h3 className="text-xl font-bold">Starter</h3>
                 <p className="text-xs text-slate-500 mt-1">Para pequenas empresas e profissionais autônomos</p>
@@ -368,113 +377,113 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
                 <ul className="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>Até 1.000 contatos ativos/mês</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>1 Número Oficial WhatsApp Cloud API</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Lead Scoring em tempo real</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Classificação de leads em tempo real</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>2 atendentes humanos inclusos</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Respostas na janela de 24h a R$ 0</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Respostas gratuitas na janela de 24h</span>
                   </li>
                 </ul>
               </div>
               <button
                 onClick={() => handleOpenCheckout("starter")}
-                className="mt-8 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 hover:bg-brand-600 hover:text-white transition-all"
+                className="mt-8 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-100 dark:bg-fluxi-graphiteLight text-slate-700 dark:text-slate-200 hover:bg-fluxi-green hover:text-white transition-all"
               >
                 Assinar Plano Starter
               </button>
             </div>
 
             {/* Pro Plan (Highlighted) */}
-            <div className="rounded-2xl border-2 border-brand-500 p-8 bg-white dark:bg-slate-900 shadow-xl shadow-brand-500/10 flex flex-col justify-between relative">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-0.5 rounded-full bg-brand-500 text-white text-[11px] font-bold tracking-wide uppercase">
+            <div className="rounded-2xl border-2 border-fluxi-blue p-8 bg-white dark:bg-fluxi-graphiteCard shadow-xl shadow-fluxi-blue/10 flex flex-col justify-between relative">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-0.5 rounded-full bg-fluxi-blue text-white text-[11px] font-bold tracking-wide uppercase">
                 Mais Escolhido
               </div>
               <div>
                 <h3 className="text-xl font-bold">Pro</h3>
-                <p className="text-xs text-slate-500 mt-1">Para empresas em crescimento e times de vendas B2B</p>
+                <p className="text-xs text-slate-500 mt-1">Para empresas em crescimento e equipes comerciais</p>
                 <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-brand-600 dark:text-brand-400">R$ 497</span>
+                  <span className="text-4xl font-extrabold text-fluxi-blue">R$ 497</span>
                   <span className="text-xs text-slate-500">/mês</span>
                 </div>
                 <ul className="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>Até 5.000 contatos ativos/mês</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>IA Gemini 3.5 com persona personalizada</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>IA com a personalidade e tom da sua marca</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Recuperação Proativa de Conversas 24h</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Recuperação automática de conversas paradas</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>10 atendentes humanos simultâneos</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Painel de Insights de Vendas por horário</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Painel de horários de pico e conversão</span>
                   </li>
                 </ul>
               </div>
               <button
                 onClick={() => handleOpenCheckout("pro")}
-                className="mt-8 w-full py-3 px-4 rounded-xl font-bold text-sm bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-600/30 transition-all"
+                className="mt-8 w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-fluxi-green hover:bg-fluxi-greenHover text-white shadow-md shadow-fluxi-green/30 active:scale-95 transition-all"
               >
                 Assinar Plano Pro
               </button>
             </div>
 
             {/* Scale Plan */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-8 bg-white dark:bg-slate-900 flex flex-col justify-between hover:border-brand-400 transition-colors">
+            <div className="rounded-2xl border border-slate-200 dark:border-fluxi-graphiteBorder p-8 bg-white dark:bg-fluxi-graphiteCard flex flex-col justify-between hover:border-fluxi-blue transition-colors shadow-xs">
               <div>
                 <h3 className="text-xl font-bold">Scale</h3>
-                <p className="text-xs text-slate-500 mt-1">Para operações de alto volume e múltiplos números</p>
+                <p className="text-xs text-slate-500 mt-1">Para operações com múltiplos números e setores</p>
                 <div className="mt-6 flex items-baseline gap-1">
                   <span className="text-4xl font-extrabold">R$ 997</span>
                   <span className="text-xs text-slate-500">/mês</span>
                 </div>
                 <ul className="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Contatos e mensagens ilimitadas</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Contatos e mensagens sem limites</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>Múltiplos números e departamentos</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Máquina de estados avançada customizada</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Fluxos de atendimento customizados</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
                     <span>Atendentes humanos ilimitados</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-brand-600" />
-                    <span>Gerente de contas e SLA dedicado</span>
+                    <CheckCircle2 className="w-4 h-4 text-fluxi-green" />
+                    <span>Suporte prioritário e onboarding dedicado</span>
                   </li>
                 </ul>
               </div>
               <button
                 onClick={() => handleOpenCheckout("scale")}
-                className="mt-8 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 hover:bg-brand-600 hover:text-white transition-all"
+                className="mt-8 w-full py-3 px-4 rounded-xl font-bold text-sm bg-slate-100 dark:bg-fluxi-graphiteLight text-slate-700 dark:text-slate-200 hover:bg-fluxi-green hover:text-white transition-all"
               >
                 Assinar Plano Scale
               </button>
@@ -484,29 +493,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 6. Footer */}
-      <footer id="seguranca" className="py-12 bg-slate-100 dark:bg-slate-900/80 border-t border-slate-200 dark:border-slate-800">
+      <footer id="seguranca" className="py-12 bg-white dark:bg-fluxi-graphiteCard border-t border-slate-200 dark:border-fluxi-graphiteBorder">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center justify-center sm:justify-start gap-2">
-              <div className="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center text-white">
-                <MessageSquare className="w-4 h-4" />
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <img
+              src="/logo/icon-rounded-512.png"
+              alt="Fluxi Logo"
+              className="w-8 h-8 rounded-lg object-contain shadow-xs"
+            />
+            <div>
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="font-extrabold text-fluxi-graphite dark:text-white">FLUXI</span>
+                <span className="text-xs font-bold text-fluxi-blue">Bots</span>
               </div>
-              <span className="font-bold">WhatsApp Sales Hub</span>
+              <p className="text-xs text-slate-500 mt-1">
+                Fluxi: Sites • Automações • WhatsApp Bots. Conexão 100% oficial com a Meta e conformidade com a LGPD.
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Plataforma Multi-Tenant em conformidade total com os termos da Meta WhatsApp Cloud API e LGPD.
-            </p>
           </div>
 
           <div className="flex items-center gap-6 text-xs text-slate-500">
             <span>Privacidade & LGPD</span>
             <span>Termos de Uso</span>
-            <span>Status da API</span>
             <button
               onClick={onOpenDashboardDemo}
-              className="text-brand-600 font-semibold hover:underline"
+              className="text-fluxi-blue font-semibold hover:underline"
             >
-              Demo do Painel
+              Acessar Painel Demo
             </button>
           </div>
         </div>
@@ -514,8 +527,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* 7. Simulated Checkout Modal -> Seamless Onboarding Handoff */}
       {checkoutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-fluxi-graphite/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-fluxi-graphiteCard rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-fluxi-graphiteBorder relative">
             <button
               onClick={() => setCheckoutModalOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white"
@@ -524,19 +537,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
 
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-brand-100 dark:bg-brand-950 text-brand-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-fluxi-blueLight dark:bg-fluxi-blue/10 text-fluxi-blue flex items-center justify-center">
                 <CreditCard className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="font-bold text-lg">Assinatura do {selectedPlanForCheckout.toUpperCase()}</h3>
-                <p className="text-xs text-slate-500">Etapa de checkout (Simulação para o MVP)</p>
+                <p className="text-xs text-slate-500">Fluxo rápido de ativação do seu robô</p>
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-5">
+            <div className="bg-slate-50 dark:bg-fluxi-graphite p-4 rounded-xl border border-slate-200 dark:border-fluxi-graphiteBorder mb-5">
               <div className="flex justify-between items-center text-sm font-semibold mb-2">
                 <span>Plano {selectedPlanForCheckout.toUpperCase()}</span>
-                <span>
+                <span className="text-fluxi-blue font-bold">
                   {selectedPlanForCheckout === "starter"
                     ? "R$ 197/mês"
                     : selectedPlanForCheckout === "pro"
@@ -546,38 +559,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
               <div className="text-xs text-slate-500 space-y-1">
                 <p>✓ 7 Dias de garantia incondicional</p>
-                <p>✓ Ativação imediata sem fila de espera</p>
-                <p>✓ Redirecionamento direto ao Wizard de Onboarding</p>
+                <p>✓ Ativação imediata sem burocracia</p>
+                <p>✓ Configuração do número em poucos minutos</p>
               </div>
             </div>
 
             <div className="space-y-3 mb-6">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Cartão de Crédito (Simulado)
+                  Cartão de Crédito (Simulação de Demonstração)
                 </label>
                 <input
                   type="text"
                   disabled
                   value="•••• •••• •••• 4242  (Modo Demonstração Ativo)"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-500"
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-fluxi-graphiteBorder bg-slate-100 dark:bg-fluxi-graphite text-slate-500"
                 />
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-1.5 text-[11px] text-fluxi-green font-semibold">
                 <Lock className="w-3.5 h-3.5" />
-                <span>Ambiente seguro. Nenhuma cobrança real será feita nesta etapa.</span>
+                <span>Ambiente seguro. Nenhuma cobrança real será realizada na demonstração.</span>
               </div>
             </div>
 
             <button
               onClick={handleConfirmSimulatedCheckout}
               disabled={isProcessingCheckout}
-              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-600/30 flex items-center justify-center gap-2 transition-all"
+              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-fluxi-green hover:bg-fluxi-greenHover text-white shadow-md shadow-fluxi-green/30 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               {isProcessingCheckout ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Ativando sua assinatura...</span>
+                  <span>Ativando seu plano...</span>
                 </>
               ) : (
                 <>
