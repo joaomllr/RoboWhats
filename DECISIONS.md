@@ -215,3 +215,25 @@ São dois problemas independentes e é importante não confundi-los:
 O `recipient_id` do callback (`555181186641`, 12 dígitos) confirma que a Meta normaliza
 sozinha o número que enviamos com o 9º dígito — ou seja, enviar na forma de 13 dígitos
 satisfaz o gate da allowed list sem prejudicar a entrega.
+
+### Causa confirmada do `#130497`: cross-country a partir do número de teste
+
+O número de teste que a Meta provisiona é **americano** (`+1 555 153-4871`,
+Phone Number ID `1322904704240693`, WABA `2589390954808409`). O destinatário do
+piloto é brasileiro. Isso torna toda resposta uma mensagem **cross-country**, e a
+Meta restringe cross-country justamente para Brasil e Indonésia — inclusive após
+completar o scaling path.
+
+O que **não** resolve (verificado antes de gastar esforço):
+
+- Verificação de Negócio / CNPJ (Etapa 3). O bloqueio não é de identidade da empresa.
+- Trocar token, versão da Graph API ou qualquer coisa no runtime.
+
+O que resolve: **Etapa 2 — Configuração da produção**, registrando um número
+brasileiro próprio na WABA. A mensagem passa a ser BR → BR (doméstica) e a
+restrição de cross-country deixa de se aplicar.
+
+Lição para sessões futuras: o número de teste da Meta serve para validar o
+*recebimento* e o formato das chamadas, mas **não** serve para validar entrega a
+destinatários brasileiros. Um `wamid` de sucesso não significa entrega — só o
+callback de status diz a verdade.
