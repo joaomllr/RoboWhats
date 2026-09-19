@@ -2,171 +2,128 @@
 
 ## 1. System Overview
 
-**WhatsApp Sales Hub** is built as an enterprise-grade, serverless multi-tenant platform. A single, shared infrastructure handles multiple independent businesses (tenants), providing complete data segregation, dynamic AI persona execution, deterministic workflow tracking, and usage metering.
+**WhatsApp Sales Hub** is built as an enterprise-grade, serverless multi-tenant platform with **zero upfront infrastructure costs**. A single managed Postgres instance with Row Level Security (RLS) handles multiple independent businesses (tenants), providing complete data segregation, dynamic AI persona execution, deterministic workflow tracking, and usage metering.
 
 ```mermaid
 flowchart TD
     User([Customer on WhatsApp]) -->|Inbound Message| Meta[Meta WhatsApp Cloud API]
-    Meta -->|HTTP Webhook POST| WebhookFn[Cloud Function: whatsappWebhook]
+    Meta -->|HTTP Webhook POST| WebhookFn[Supabase Edge Function: webhook]
     
     subgraph Security & Verification
-        WebhookFn -->|1. HMAC SHA-256 Check| SignatureValidator[Signature Validator]
+        WebhookFn -->|1. HMAC SHA-256 Check| SignatureValidator[Web Crypto HMAC Validator]
         SignatureValidator -->|Reject invalid| Forbidden[HTTP 403 Forbidden]
         SignatureValidator -->|Valid payload| Router[Tenant Router]
     end
 
     subgraph Tenant Resolution & State Engine
-        Router -->|2. Lookup phone_number_id| PhoneIndex[(phoneNumberIndex Collection)]
-        PhoneIndex -->|Return tenantId| Engine[Agnostic State Engine]
-        Engine -->|3. Fetch Config & State| TenantConfig[(tenants/tenantId/config/main)]
-        Engine -->|4. Fetch Contact & History| ContactHistory[(tenants/tenantId/conversations)]
-        Engine -->|5. Context + Prompt| Gemini[Google Gemini AI / @google/genai]
-        Gemini -->|6. Intent + Score + Response| Engine
-        Engine -->|7. Update State & Messages| ContactHistory
+        Router -->|2. Lookup phone_number_id| PhoneIndex[(public.phone_number_index)]
+        PhoneIndex -->|Return tenant_id| Engine[Agnostic State Engine]
+        Engine -->|3. Fetch Contact & History| DB[(Supabase Postgres DB)]
+        Engine -->|4. Context + Prompt| Gemini[Google AI Studio Gemini API]
+        Gemini -->|5. Intent + Score + Response| Engine
+        Engine -->|6. Persist Messages & State| DB
     end
 
     subgraph Outbound & Telemetry
-        Engine -->|8. Send Reply| MetaSend[Meta Send API]
+        Engine -->|7. Send Reply| MetaSend[Meta Send API]
         MetaSend -->|WhatsApp Message| User
-        Engine -->|9. Record Usage| UsageMeter[(tenants/tenantId/usage/yyyy-mm)]
+        Engine -->|8. Record Usage| UsageMeter[(public.usage)]
     end
 
     subgraph Self-Service Dashboard
-        Admin([Tenant Business Admin]) -->|Authenticated Access| Dashboard[React SPA / Firebase Hosting]
-        Dashboard -->|App Check Verified| DashboardAPI[Dashboard API / Firestore SDK]
-        DashboardAPI -->|Read/Write Tenant Scoped| ContactHistory
+        Admin([Tenant Business Admin]) -->|Authenticated Access| Dashboard[React SPA / Vite]
+        Dashboard -->|Supabase Auth JWT| SupabaseAPI[Supabase PostgREST API]
+        SupabaseAPI -->|Postgres RLS Enforced| DB
     end
 ```
 
 ---
 
-## 2. Multi-Tenant Data Model
+## 2. Relational Multi-Tenant Data Model (Postgres + RLS)
 
-Every tenant's operational data is strictly isolated within the root hierarchy `tenants/{tenantId}/**`.
+Every tenant's operational data is strictly isolated within Postgres using Row Level Security.
 
-### 2.1. Tenant Root
-- **Path**: `tenants/{tenantId}`
-- **Schema**:
-  ```typescript
-  interface TenantRecord {
-    id: string;
-    companyName: string;
-    documentNumber: string; // CNPJ / CPF
-    plan: "starter" | "pro" | "enterprise";
-    status: "active" | "trialing" | "past_due" | "suspended";
-    phoneNumberId: string;
-    displayPhoneNumber: string;
-    wabaId: string; // WhatsApp Business Account ID
-    createdAt: FirebaseFirestore.Timestamp;
-    updatedAt: FirebaseFirestore.Timestamp;
-  }
-  ```
+### 2.1. `public.tenants`
+```sql
+create table public.tenants (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  plan_tier text not null default 'trial' check (plan_tier in ('trial', 'starter', 'growth', 'scale')),
+  status text not null default 'onboarding' check (status in ('onboarding', 'active', 'suspended', 'cancelled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
 
-### 2.2. Tenant Configuration (Agnostic Bot Engine)
-- **Path**: `tenants/{tenantId}/config/main`
-- **Schema**:
-  ```typescript
-  interface BotConfig {
-    persona: {
-      botName: string;
-      tone: "friendly" | "professional" | "enthusiastic" | "consultative";
-      companyDescription: string;
-      salesPitch: string;
-      knowledgeBase: string[];
-    };
-    businessHours: {
-      enabled: boolean;
-      timezone: string; // e.g. "America/Sao_Paulo"
-      start: string; // "09:00"
-      end: string; // "18:00"
-      outsideHoursMessage: string;
-    };
-    escalation: {
-      humanTakeoverKeywords: string[];
-      notifyEmails: string[];
-      escalationMessage: string;
-    };
-    stateMachine: {
-      initialState: string;
-      states: Record<string, {
-        name: string;
-        description: string;
-        systemPromptInstructions: string;
-        nextPossibleStates: string[];
-        terminal?: boolean;
-      }>;
-    };
-  }
-  ```
+### 2.2. `public.tenant_users`
+Links Supabase authenticated users (`auth.users`) to specific tenants:
+```sql
+create table public.tenant_users (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'agent' check (role in ('admin', 'agent')),
+  created_at timestamptz not null default now(),
+  unique (tenant_id, user_id)
+);
+```
 
-### 2.3. Contacts & Real-Time Lead Scoring
-- **Path**: `tenants/{tenantId}/contacts/{contactId}` (where `contactId` is normalized E.164 phone number, e.g. `5511999998888`)
-- **Schema**:
-  ```typescript
-  interface Contact {
-    id: string; // phone number
-    name: string;
-    phoneNumber: string;
-    funnelStage: "new_lead" | "hot_lead" | "customer" | "lost";
-    leadScore: "frio" | "morno" | "quente";
-    scoreReason: string;
-    currentState: string;
-    assignedAgent: "ai" | "human";
-    tags: string[];
-    extractedData: Record<string, any>;
-    lastActiveAt: FirebaseFirestore.Timestamp;
-    createdAt: FirebaseFirestore.Timestamp;
-  }
-  ```
+### 2.3. `public.phone_number_index` (Server-Only Routing)
+Restricted table with no client RLS policy (accessible only by `service_role`):
+```sql
+create table public.phone_number_index (
+  phone_number_id text primary key,
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  waba_id text,
+  created_at timestamptz not null default now()
+);
+```
 
-### 2.4. Conversations & Message History
-- **Path**: `tenants/{tenantId}/conversations/{conversationId}/messages/{messageId}`
-- **Schema**:
-  ```typescript
-  interface ConversationMessage {
-    id: string;
-    conversationId: string;
-    sender: "contact" | "bot" | "agent";
-    text: string;
-    timestamp: FirebaseFirestore.Timestamp;
-    metaMessageId?: string;
-    status: "sent" | "delivered" | "read" | "failed";
-    tokensUsed?: {
-      prompt: number;
-      candidates: number;
-    };
-  }
-  ```
+### 2.4. `public.contacts`
+Stores lead information with real-time scoring (`frio`, `morno`, `quente`):
+```sql
+create table public.contacts (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  wa_phone text not null,
+  name text,
+  lead_score text not null default 'frio' check (lead_score in ('frio', 'morno', 'quente')),
+  stage text not null default 'novo',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tenant_id, wa_phone)
+);
+```
 
-### 2.5. Usage & Metering (Billing Telemetry)
-- **Path**: `tenants/{tenantId}/usage/{yyyy-mm}`
-- **Schema**:
-  ```typescript
-  interface TenantMonthlyUsage {
-    period: string; // "2026-09"
-    metaMessages: {
-      freeCustomerCareWindow: number; // Inside 24h window (Free)
-      billableTemplateMarketing: number;
-      billableTemplateUtility: number;
-    };
-    geminiTokens: {
-      promptTokens: number;
-      candidateTokens: number;
-      totalCostEstimatedUsd: number;
-    };
-    lastUpdatedAt: FirebaseFirestore.Timestamp;
-  }
-  ```
+### 2.5. `public.conversations`
+Inbound and outbound message history:
+```sql
+create table public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  contact_id uuid not null references public.contacts(id) on delete cascade,
+  direction text not null check (direction in ('inbound', 'outbound')),
+  message_body text,
+  message_type text not null default 'text',
+  created_at timestamptz not null default now()
+);
+```
 
-### 2.6. Global Phone Number Index (Protected)
-- **Path**: `phoneNumberIndex/{phone_number_id}`
-- **Schema**:
-  ```typescript
-  interface PhoneNumberRouting {
-    tenantId: string;
-    registeredAt: FirebaseFirestore.Timestamp;
-  }
-  ```
+### 2.6. `public.usage` (Server-Only Telemetry)
+Monthly telemetry counters per tenant:
+```sql
+create table public.usage (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  period text not null,
+  meta_messages_free_window int not null default 0,
+  meta_messages_paid int not null default 0,
+  gemini_tokens_used bigint not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tenant_id, period)
+);
+```
 
 ---
 
@@ -174,17 +131,18 @@ Every tenant's operational data is strictly isolated within the root hierarchy `
 
 1. **Meta Webhook Ingestion**:
    - Meta sends an HTTP POST with `X-Hub-Signature-256`.
-   - `whatsappWebhook` Cloud Function extracts raw body buffer and validates HMAC against `META_APP_SECRET`. Invalid requests return HTTP 403.
+   - `webhook` Edge Function extracts raw body buffer and validates HMAC against `META_APP_SECRET` using Web Crypto API. Invalid requests return HTTP 403.
 2. **Challenge Verification**:
    - For webhook setup, `GET` requests with `hub.mode=subscribe` and `hub.verify_token` are validated against `META_WEBHOOK_VERIFY_TOKEN`.
 3. **Tenant Resolution**:
    - Inbound message payload provides `entry[0].changes[0].value.metadata.phone_number_id`.
-   - Function looks up `phoneNumberIndex/{phone_number_id}` to retrieve `tenantId`.
+   - Function looks up `public.phone_number_index` with `service_role` to retrieve `tenant_id`.
 4. **State Machine & Gemini Processing**:
-   - Loads tenant config and current contact document.
-   - If contact `assignedAgent === "human"`, message is recorded to Firestore for the unified inbox without automated bot reply.
-   - If `assignedAgent === "ai"`, payload + conversation context is passed to the State Engine.
-   - Gemini calculates lead scoring, verifies state transition criteria, and produces response text.
+   - Loads contact and conversation history.
+   - Evaluates escalation keywords; if matched, escalates immediately to `transbordo_humano`.
+   - Invokes Google AI Studio Gemini API (`gemini-2.5-flash`) with prompt boundary and `maxOutputTokens: 500`.
+   - Receives lead score (`frio`, `morno`, `quente`), extracted sales data, and reply text.
 5. **Dispatch & Metering**:
    - Outbound reply is dispatched to Meta Graph API `https://graph.facebook.com/v21.0/{phone_number_id}/messages`.
-   - Tokens and message status are atomically incremented in `tenants/{tenantId}/usage/{yyyy-mm}`.
+   - Message and usage counters are atomically written to `public.conversations` and `public.usage`.
+

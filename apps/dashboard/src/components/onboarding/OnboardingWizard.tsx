@@ -75,13 +75,13 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const handleFinish = () => {
     const newTenant: Tenant = {
       id: `tenant_${companyName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now().toString().slice(-4)}`,
-      companyName,
+      name: companyName,
       phoneNumberId,
       displayPhoneNumber,
       wabaId,
-      plan: initialPlan,
+      plan_tier: (initialPlan === "pro" ? "growth" : initialPlan === "scale" ? "scale" : "starter"),
       status: "active",
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
     const newConfig: Partial<BotConfig> = {
@@ -460,7 +460,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <div className="text-xs text-emerald-800 dark:text-emerald-300">
                 <span className="font-bold">Tudo pronto para operar!</span> O número WhatsApp{" "}
                 <strong>{displayPhoneNumber}</strong> está roteado exclusivamente para a sua conta com segurança
-                Firestore isolada.
+                Postgres RLS isolada.
               </div>
             </div>
 

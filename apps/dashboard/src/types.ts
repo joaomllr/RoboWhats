@@ -1,32 +1,40 @@
 export type LeadScore = "frio" | "morno" | "quente";
-export type FunnelStage = "new_lead" | "hot_lead" | "customer" | "lost";
+export type FunnelStage = "novo" | "qualificando" | "lead_quente" | "cliente" | "perdido" | "transbordo_humano";
+export type PlanTier = "trial" | "starter" | "growth" | "scale";
 export type AssignedAgent = "ai" | "human";
 
 export interface Contact {
-  id: string; // phone number e.g. 5511999998888
-  name: string;
-  phoneNumber: string;
+  id: string; // uuid
+  tenant_id: string;
+  wa_phone: string;
+  name?: string | null;
+  lead_score: LeadScore;
+  stage: string;
+  scoreReason?: string;
+  assignedAgent?: AssignedAgent;
   avatar?: string;
-  funnelStage: FunnelStage;
-  leadScore: LeadScore;
-  scoreReason: string;
-  currentState: string;
-  assignedAgent: AssignedAgent;
-  tags: string[];
-  extractedData: Record<string, string>;
-  lastMessageText: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  windowExpiresInHours: number; // hours remaining in 24h window
+  tags?: string[];
+  extractedData?: Record<string, string>;
+  lastMessageText?: string;
+  lastMessageTime?: string;
+  unreadCount?: number;
+  windowExpiresInHours?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ChatMessage {
   id: string;
-  sender: "contact" | "bot" | "agent";
-  text: string;
-  timestamp: string;
-  status: "sent" | "delivered" | "read";
+  contact_id: string;
+  direction: "inbound" | "outbound";
+  message_body: string;
+  message_type: string;
+  sender?: "contact" | "bot" | "agent";
+  text?: string;
+  timestamp?: string;
+  status?: "sent" | "delivered" | "read";
   isProactiveRecovery?: boolean;
+  created_at?: string;
 }
 
 export interface BotPersona {
@@ -69,26 +77,24 @@ export interface BotConfig {
 }
 
 export interface TenantUsage {
+  id?: string;
+  tenant_id?: string;
   period: string;
-  metaMessages: {
-    freeCustomerCareWindow: number;
-    billableTemplateMarketing: number;
-    billableTemplateUtility: number;
-  };
-  geminiTokens: {
-    promptTokens: number;
-    candidateTokens: number;
-    totalCostEstimatedUsd: number;
-  };
+  meta_messages_free_window: number;
+  meta_messages_paid: number;
+  gemini_tokens_used: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Tenant {
   id: string;
-  companyName: string;
-  phoneNumberId: string;
-  displayPhoneNumber: string;
-  wabaId: string;
-  plan: "starter" | "pro" | "scale";
-  status: "active" | "trialing";
-  createdAt: string;
+  name: string;
+  plan_tier: PlanTier;
+  status: "onboarding" | "active" | "suspended" | "cancelled";
+  phoneNumberId?: string;
+  displayPhoneNumber?: string;
+  wabaId?: string;
+  created_at?: string;
+  updated_at?: string;
 }

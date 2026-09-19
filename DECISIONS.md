@@ -102,4 +102,22 @@ This document records the architectural and technical decisions made during the 
 - **Decision**: Instrument every billable event immediately in `tenants/{tenantId}/usage/{yyyy-mm}`:
   - Meta messages categorized: free 24h window vs. billable template (marketing, utility).
   - Gemini tokens: input prompt tokens and candidate output tokens.
-  - Read-only for tenant clients; updated atomically via Firestore `FieldValue.increment()`.
+  - Read-only for tenant clients; updated atomically via database increment.
+
+---
+
+## ADR-009: Zero-Upfront-Cost Infrastructure Migration to Supabase & Google AI Studio
+
+- **Status**: Accepted
+- **Context**:
+  - The initial target was Firebase Blaze + Google Cloud. However, Firebase Blaze requires an upfront credit card deposit, while the free Firebase Spark tier blocks all outbound network calls in Cloud Functions (preventing outbound requests to Meta Graph API and Gemini API).
+  - The product owner mandated a launch with **zero upfront cost ($0 card deposit)** while preserving 100% of product capabilities and multi-tenant isolation rigor.
+- **Decision**:
+  - Migrate the database to **Supabase Managed Postgres** with **Row Level Security (RLS)** as the tenant isolation engine.
+  - Migrate serverless functions to **Supabase Edge Functions** (Deno/TypeScript), supporting outbound network calls on the free tier.
+  - Call **Google AI Studio Gemini API** using standard API keys (`GEMINI_API_KEY`), which offers an extensive free tier with zero cloud billing requirements.
+- **Consequences**:
+  - Launch achieved with $0 capital expenditure.
+  - Strict multi-tenant isolation enforced at the Postgres database engine level via RLS policies (`contacts_isolated_by_tenant_select`, `tenant_users_can_read_own_membership`, etc.) and tested against Postgres.
+  - `phone_number_index` and `usage` tables completely blocked from direct client access via empty RLS policies (accessible exclusively via `service_role` in Edge Functions).
+

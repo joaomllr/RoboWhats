@@ -44,16 +44,21 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
 
   // Filter contacts
   const filteredContacts = contacts.filter((c) => {
+    const contactName = c.name || "";
+    const phone = c.wa_phone || "";
+    const currentStage = c.stage || "novo";
+    const agent = c.assignedAgent || "ai";
+
     const matchesSearch =
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.phoneNumber.includes(searchQuery);
-    const matchesFunnel = funnelFilter === "all" || c.funnelStage === funnelFilter;
-    const matchesAgent = agentFilter === "all" || c.assignedAgent === agentFilter;
+      contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      phone.includes(searchQuery);
+    const matchesFunnel = funnelFilter === "all" || currentStage === funnelFilter;
+    const matchesAgent = agentFilter === "all" || agent === agentFilter;
     return matchesSearch && matchesFunnel && matchesAgent;
   });
 
   // Calculate counts for agents
-  const aiHandledCount = contacts.filter((c) => c.assignedAgent === "ai").length;
+  const aiHandledCount = contacts.filter((c) => (c.assignedAgent || "ai") === "ai").length;
   const humanHandledCount = contacts.filter((c) => c.assignedAgent === "human").length;
 
   const handleSend = (e: React.FormEvent) => {
@@ -63,7 +68,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     setInputMessage("");
   };
 
-  const getScoreBadge = (score: LeadScore) => {
+  const getScoreBadge = (score?: LeadScore) => {
     switch (score) {
       case "quente":
         return (
@@ -79,6 +84,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
           </span>
         );
       case "frio":
+      default:
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-700 dark:bg-cyan-950/80 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
             <span>Frio</span>
@@ -87,16 +93,22 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
     }
   };
 
-  const getFunnelLabel = (stage: FunnelStage) => {
+  const getFunnelLabel = (stage: string) => {
     switch (stage) {
-      case "new_lead":
+      case "novo":
         return "Novo Lead";
-      case "hot_lead":
-        return "Lead Quente";
-      case "customer":
-        return "Cliente";
-      case "lost":
+      case "qualificando":
+        return "Qualificando";
+      case "lead_quente":
+        return "Lead Quente 🔥";
+      case "cliente":
+        return "Cliente 💰";
+      case "perdido":
         return "Perdido";
+      case "transbordo_humano":
+        return "Transbordo 👤";
+      default:
+        return stage;
     }
   };
 
@@ -168,19 +180,29 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               Todos
             </button>
             <button
-              onClick={() => setFunnelFilter("new_lead")}
+              onClick={() => setFunnelFilter("novo")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
-                funnelFilter === "new_lead"
+                funnelFilter === "novo"
                   ? "bg-blue-600 text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
-              Novos Leads
+              Novos
             </button>
             <button
-              onClick={() => setFunnelFilter("hot_lead")}
+              onClick={() => setFunnelFilter("qualificando")}
+              className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
+                funnelFilter === "qualificando"
+                  ? "bg-amber-600 text-white"
+                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              }`}
+            >
+              Qualificando
+            </button>
+            <button
+              onClick={() => setFunnelFilter("lead_quente")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium flex items-center gap-1 transition-all ${
-                funnelFilter === "hot_lead"
+                funnelFilter === "lead_quente"
                   ? "bg-rose-600 text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
@@ -189,9 +211,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               <span>Leads Quentes</span>
             </button>
             <button
-              onClick={() => setFunnelFilter("customer")}
+              onClick={() => setFunnelFilter("cliente")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
-                funnelFilter === "customer"
+                funnelFilter === "cliente"
                   ? "bg-emerald-600 text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
@@ -199,9 +221,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
               Clientes
             </button>
             <button
-              onClick={() => setFunnelFilter("lost")}
+              onClick={() => setFunnelFilter("perdido")}
               className={`px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-all ${
-                funnelFilter === "lost"
+                funnelFilter === "perdido"
                   ? "bg-slate-600 text-white"
                   : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
@@ -236,7 +258,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                         contact.avatar ||
                         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"
                       }
-                      alt={contact.name}
+                      alt={contact.name || "Contato"}
                       className="w-11 h-11 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                     />
                     <div
@@ -270,9 +292,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     </p>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {getScoreBadge(contact.leadScore)}
+                      {getScoreBadge(contact.lead_score)}
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                        {getFunnelLabel(contact.funnelStage)}
+                        {getFunnelLabel(contact.stage)}
                       </span>
                     </div>
                   </div>
@@ -297,7 +319,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     activeContact.avatar ||
                     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"
                   }
-                  alt={activeContact.name}
+                  alt={activeContact.name || "Contato"}
                   className="w-10 h-10 rounded-full object-cover"
                 />
                 <div>
@@ -305,9 +327,9 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                       {activeContact.name}
                     </h3>
-                    {getScoreBadge(activeContact.leadScore)}
+                    {getScoreBadge(activeContact.lead_score)}
                   </div>
-                  <span className="text-xs text-slate-400">{activeContact.phoneNumber}</span>
+                  <span className="text-xs text-slate-400">{activeContact.wa_phone}</span>
                 </div>
               </div>
 
@@ -446,13 +468,13 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   activeContact.avatar ||
                   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
                 }
-                alt={activeContact.name}
+                alt={activeContact.name || "Contato"}
                 className="w-16 h-16 rounded-full mx-auto object-cover border-2 border-brand-500 shadow-sm mb-3"
               />
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {activeContact.name}
               </h3>
-              <p className="text-xs text-slate-500">{activeContact.phoneNumber}</p>
+              <p className="text-xs text-slate-500">{activeContact.wa_phone}</p>
             </div>
 
             {/* Real-time Lead Scoring Card */}
@@ -462,10 +484,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-brand-500" />
                   <span>Lead Scoring IA</span>
                 </span>
-                {getScoreBadge(activeContact.leadScore)}
+                {getScoreBadge(activeContact.lead_score)}
               </div>
               <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-                {activeContact.scoreReason}
+                {activeContact.scoreReason || "Classificado pela IA com base nas interações"}
               </p>
               <div className="pt-2 flex gap-1">
                 {(["frio", "morno", "quente"] as LeadScore[]).map((s) => (
@@ -473,7 +495,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                     key={s}
                     onClick={() => onUpdateLeadScore(activeContact.id, s)}
                     className={`flex-1 py-1 text-[10px] font-bold rounded-md uppercase transition-all ${
-                      activeContact.leadScore === s
+                      activeContact.lead_score === s
                         ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
                         : "bg-slate-200/60 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
                     }`}
@@ -490,14 +512,16 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 Estágio do Funil
               </label>
               <select
-                value={activeContact.funnelStage}
+                value={activeContact.stage}
                 onChange={(e) => onUpdateFunnelStage(activeContact.id, e.target.value as FunnelStage)}
                 className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none"
               >
-                <option value="new_lead">Novo Lead</option>
-                <option value="hot_lead">Lead Quente 🔥</option>
-                <option value="customer">Cliente Fechado 💰</option>
-                <option value="lost">Perdido</option>
+                <option value="novo">Novo Lead</option>
+                <option value="qualificando">Qualificando</option>
+                <option value="lead_quente">Lead Quente 🔥</option>
+                <option value="cliente">Cliente Fechado 💰</option>
+                <option value="perdido">Perdido</option>
+                <option value="transbordo_humano">Transbordo Humano 👤</option>
               </select>
             </div>
 
@@ -520,10 +544,10 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 Dados Extraídos pela IA
               </span>
               <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-200 dark:border-slate-700 space-y-1.5">
-                {Object.entries(activeContact.extractedData).length === 0 ? (
+                {Object.entries(activeContact.extractedData || {}).length === 0 ? (
                   <p className="text-xs text-slate-400">Nenhum dado extraído ainda.</p>
                 ) : (
-                  Object.entries(activeContact.extractedData).map(([key, val]) => (
+                  Object.entries(activeContact.extractedData || {}).map(([key, val]) => (
                     <div key={key} className="flex justify-between text-xs">
                       <span className="text-slate-500 capitalize">{key}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
@@ -542,7 +566,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 <span>Tags Comerciais</span>
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {activeContact.tags.map((tag, idx) => (
+                {(activeContact.tags || []).map((tag, idx) => (
                   <span
                     key={idx}
                     className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"

@@ -17,9 +17,9 @@ interface SalesInsightsProps {
 export const SalesInsights: React.FC<SalesInsightsProps> = ({ contacts, usage }) => {
   // Funnel calculations
   const totalLeads = contacts.length;
-  const hotLeads = contacts.filter((c) => c.leadScore === "quente").length;
-  const customers = contacts.filter((c) => c.funnelStage === "customer").length;
-  const aiHandled = contacts.filter((c) => c.assignedAgent === "ai").length;
+  const hotLeads = contacts.filter((c) => c.lead_score === "quente").length;
+  const customers = contacts.filter((c) => c.stage === "cliente" || c.stage === "customer").length;
+  const aiHandled = contacts.filter((c) => (c.assignedAgent || "ai") === "ai").length;
 
   const qualificationRate = totalLeads > 0 ? Math.round((hotLeads / totalLeads) * 100) : 0;
   const closingRate = hotLeads > 0 ? Math.round((customers / hotLeads) * 100) : 0;
@@ -113,7 +113,9 @@ export const SalesInsights: React.FC<SalesInsightsProps> = ({ contacts, usage })
             </span>
             <span className="text-xs font-semibold text-emerald-600">Cotas Grátis Ativas</span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">1.420 msgs na janela gratuita de 24h</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {usage.meta_messages_free_window.toLocaleString("pt-BR")} msgs na janela gratuita de 24h
+          </p>
         </div>
       </div>
 
@@ -242,7 +244,7 @@ export const SalesInsights: React.FC<SalesInsightsProps> = ({ contacts, usage })
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
               Instrumentação de Uso & Consumo do Mês ({usage.period})
             </h3>
-            <p className="text-xs text-slate-500">Métricas gravadas por chamada no Firestore para faturamento e controle</p>
+            <p className="text-xs text-slate-500">Métricas gravadas por chamada no Postgres para faturamento e controle</p>
           </div>
           <span className="text-xs px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold rounded-full">
             Plano Pro Ativo
@@ -253,7 +255,7 @@ export const SalesInsights: React.FC<SalesInsightsProps> = ({ contacts, usage })
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-xs text-slate-500 block mb-1">Mensagens Meta (Janela 24h)</span>
             <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {usage.metaMessages.freeCustomerCareWindow.toLocaleString("pt-BR")}
+              {usage.meta_messages_free_window.toLocaleString("pt-BR")}
             </span>
             <span className="text-[11px] text-slate-400 block mt-1">Custo da Meta: R$ 0,00 (100% Grátis)</span>
           </div>
@@ -261,21 +263,18 @@ export const SalesInsights: React.FC<SalesInsightsProps> = ({ contacts, usage })
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <span className="text-xs text-slate-500 block mb-1">Templates Meta Pagos (Marketing/Utility)</span>
             <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {(
-                usage.metaMessages.billableTemplateMarketing +
-                usage.metaMessages.billableTemplateUtility
-              ).toLocaleString("pt-BR")}
+              {usage.meta_messages_paid.toLocaleString("pt-BR")}
             </span>
             <span className="text-[11px] text-slate-400 block mt-1">Apenas mensagens fora da janela 24h</span>
           </div>
 
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-            <span className="text-xs text-slate-500 block mb-1">Tokens Gemini 3.5 Consumidos</span>
+            <span className="text-xs text-slate-500 block mb-1">Tokens Gemini Consumidos</span>
             <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {(usage.geminiTokens.promptTokens + usage.geminiTokens.candidateTokens).toLocaleString("pt-BR")}
+              {usage.gemini_tokens_used.toLocaleString("pt-BR")}
             </span>
             <span className="text-[11px] text-slate-400 block mt-1">
-              Custo total estimado: US$ {usage.geminiTokens.totalCostEstimatedUsd.toFixed(2)}
+              Google AI Studio (Plano gratuito ativo)
             </span>
           </div>
         </div>

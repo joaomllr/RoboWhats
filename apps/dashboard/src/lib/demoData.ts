@@ -2,25 +2,25 @@ import { Contact, ChatMessage, BotConfig, TenantUsage, Tenant } from "../types";
 
 export const initialTenant: Tenant = {
   id: "tenant_alpha_tech_demo",
-  companyName: "AlphaTech Soluções",
+  name: "AlphaTech Soluções",
+  plan_tier: "growth",
+  status: "active",
   phoneNumberId: "109876543210987",
   displayPhoneNumber: "+55 11 98765-4321",
   wabaId: "987654321012345",
-  plan: "pro",
-  status: "active",
-  createdAt: "2026-09-01T10:00:00Z",
+  created_at: "2026-09-01T10:00:00Z",
 };
 
 export const initialContacts: Contact[] = [
   {
     id: "5511998877665",
+    tenant_id: "tenant_alpha_tech_demo",
+    wa_phone: "+55 (11) 99887-7665",
     name: "Mariana Souza",
-    phoneNumber: "+55 (11) 99887-7665",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
-    funnelStage: "hot_lead",
-    leadScore: "quente",
+    lead_score: "quente",
+    stage: "lead_quente",
     scoreReason: "Solicitou proposta formal do Plano Pro e quer fechar hoje",
-    currentState: "closing",
     assignedAgent: "ai",
     tags: ["Decisor", "Urgência Alta", "Empresa 50+ func"],
     extractedData: {
@@ -33,16 +33,18 @@ export const initialContacts: Contact[] = [
     lastMessageTime: "14:42",
     unreadCount: 1,
     windowExpiresInHours: 21,
+    created_at: "2026-09-19T14:35:00Z",
+    updated_at: "2026-09-19T14:42:00Z",
   },
   {
     id: "5521987654321",
+    tenant_id: "tenant_alpha_tech_demo",
+    wa_phone: "+55 (21) 98765-4321",
     name: "Carlos Eduardo Mendes",
-    phoneNumber: "+55 (21) 98765-4321",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-    funnelStage: "new_lead",
-    leadScore: "morno",
+    lead_score: "morno",
+    stage: "qualificando",
     scoreReason: "Tem interesse em automatizar suporte, mas está comparando alternativas",
-    currentState: "presentation",
     assignedAgent: "ai",
     tags: ["E-commerce", "Comparando preços"],
     extractedData: {
@@ -53,16 +55,18 @@ export const initialContacts: Contact[] = [
     lastMessageTime: "13:15",
     unreadCount: 0,
     windowExpiresInHours: 18,
+    created_at: "2026-09-19T13:10:00Z",
+    updated_at: "2026-09-19T13:15:00Z",
   },
   {
     id: "5531991234567",
+    tenant_id: "tenant_alpha_tech_demo",
+    wa_phone: "+55 (31) 99123-4567",
     name: "Rodrigo Vasconcelos",
-    phoneNumber: "+55 (31) 99123-4567",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-    funnelStage: "customer",
-    leadScore: "quente",
+    lead_score: "quente",
+    stage: "cliente",
     scoreReason: "Cliente ativo. Fechou contrato em 12/09",
-    currentState: "completed",
     assignedAgent: "human",
     tags: ["Cliente Ativo", "Plano Pro"],
     extractedData: {
@@ -73,16 +77,18 @@ export const initialContacts: Contact[] = [
     lastMessageTime: "Ontem",
     unreadCount: 0,
     windowExpiresInHours: 5,
+    created_at: "2026-09-12T10:00:00Z",
+    updated_at: "2026-09-18T16:00:00Z",
   },
   {
     id: "5541988887777",
+    tenant_id: "tenant_alpha_tech_demo",
+    wa_phone: "+55 (41) 98888-7777",
     name: "Fernanda Lima",
-    phoneNumber: "+55 (41) 98888-7777",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-    funnelStage: "new_lead",
-    leadScore: "frio",
+    lead_score: "frio",
+    stage: "novo",
     scoreReason: "Apenas mandou oi e não especificou segmento de atuação",
-    currentState: "welcome",
     assignedAgent: "ai",
     tags: ["Topo de Funil"],
     extractedData: {},
@@ -90,16 +96,18 @@ export const initialContacts: Contact[] = [
     lastMessageTime: "10:04",
     unreadCount: 0,
     windowExpiresInHours: 14,
+    created_at: "2026-09-19T10:04:00Z",
+    updated_at: "2026-09-19T10:04:00Z",
   },
   {
     id: "5519977776666",
+    tenant_id: "tenant_alpha_tech_demo",
+    wa_phone: "+55 (19) 97777-6666",
     name: "Lucas Alencar",
-    phoneNumber: "+55 (19) 97777-6666",
     avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80",
-    funnelStage: "lost",
-    leadScore: "frio",
+    lead_score: "frio",
+    stage: "perdido",
     scoreReason: "Lead sem orçamento no momento para planos empresariais",
-    currentState: "welcome",
     assignedAgent: "ai",
     tags: ["Sem orçamento", "Nutrição"],
     extractedData: {
@@ -109,6 +117,8 @@ export const initialContacts: Contact[] = [
     lastMessageTime: "17/09",
     unreadCount: 0,
     windowExpiresInHours: 0,
+    created_at: "2026-09-17T11:00:00Z",
+    updated_at: "2026-09-17T11:20:00Z",
   },
 ];
 
@@ -116,6 +126,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
   "5511998877665": [
     {
       id: "m1",
+      contact_id: "5511998877665",
+      direction: "inbound",
+      message_body: "Olá! Vi o anúncio de vocês sobre robô de WhatsApp com IA e lead scoring.",
+      message_type: "text",
       sender: "contact",
       text: "Olá! Vi o anúncio de vocês sobre robô de WhatsApp com IA e lead scoring.",
       timestamp: "14:35",
@@ -123,6 +137,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m2",
+      contact_id: "5511998877665",
+      direction: "outbound",
+      message_body: "Olá Mariana, seja muito bem-vinda à AlphaTech! Sou o Alex, consultor de IA. Você gostaria de aumentar as vendas ou desafogar o suporte ao cliente com o WhatsApp?",
+      message_type: "text",
       sender: "bot",
       text: "Olá Mariana, seja muito bem-vinda à AlphaTech! Sou o Alex, consultor de IA. Você gostaria de aumentar as vendas ou desafogar o suporte ao cliente com o WhatsApp?",
       timestamp: "14:35",
@@ -130,6 +148,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m3",
+      contact_id: "5511998877665",
+      direction: "inbound",
+      message_body: "Nosso foco principal é vendas! Temos cerca de 50 colaboradores e recebemos centenas de mensagens por dia, mas os atendentes demoram para responder os leads quentes.",
+      message_type: "text",
       sender: "contact",
       text: "Nosso foco principal é vendas! Temos cerca de 50 colaboradores e recebemos centenas de mensagens por dia, mas os atendentes demoram para responder os leads quentes.",
       timestamp: "14:38",
@@ -137,6 +159,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m4",
+      contact_id: "5511998877665",
+      direction: "outbound",
+      message_body: "Excelente! É exatamente nessa dor que o AlphaTech se destaca: nossa IA classifica os leads em tempo real (Frio, Morno, Quente) e já coleta as informações essenciais. Para o seu porte, o Plano Pro com até 5.000 contatos ativos e suporte prioritário é a escolha ideal!",
+      message_type: "text",
       sender: "bot",
       text: "Excelente! É exatamente nessa dor que o AlphaTech se destaca: nossa IA classifica os leads em tempo real (Frio, Morno, Quente) e já coleta as informações essenciais. Para o seu porte, o Plano Pro com até 5.000 contatos ativos e suporte prioritário é a escolha ideal!",
       timestamp: "14:39",
@@ -144,6 +170,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m5",
+      contact_id: "5511998877665",
+      direction: "inbound",
+      message_body: "Perfeito! Pode me mandar o link para pagamento da anuidade com o desconto?",
+      message_type: "text",
       sender: "contact",
       text: "Perfeito! Pode me mandar o link para pagamento da anuidade com o desconto?",
       timestamp: "14:42",
@@ -153,6 +183,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
   "5521987654321": [
     {
       id: "m20",
+      contact_id: "5521987654321",
+      direction: "inbound",
+      message_body: "Boa tarde! Vocês integram direto com a Meta ou usam QR code?",
+      message_type: "text",
       sender: "contact",
       text: "Boa tarde! Vocês integram direto com a Meta ou usam QR code?",
       timestamp: "13:10",
@@ -160,6 +194,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m21",
+      contact_id: "5521987654321",
+      direction: "outbound",
+      message_body: "Boa tarde Carlos! Nossa integração é 100% oficial via Meta WhatsApp Cloud API. Isso significa zero risco de banimento de número, estabilidade corporativa e você conecta seu número via WhatsApp Embedded Signup em minutos!",
+      message_type: "text",
       sender: "bot",
       text: "Boa tarde Carlos! Nossa integração é 100% oficial via Meta WhatsApp Cloud API. Isso significa zero risco de banimento de número, estabilidade corporativa e você conecta seu número via WhatsApp Embedded Signup em minutos!",
       timestamp: "13:11",
@@ -167,6 +205,10 @@ export const initialMessages: Record<string, ChatMessage[]> = {
     },
     {
       id: "m22",
+      contact_id: "5521987654321",
+      direction: "inbound",
+      message_body: "Como vocês comparam em relação a ferramentas como Wati ou respond.io?",
+      message_type: "text",
       sender: "contact",
       text: "Como vocês comparam em relação a ferramentas como Wati ou respond.io?",
       timestamp: "13:15",
@@ -236,14 +278,7 @@ export const initialBotConfig: BotConfig = {
 
 export const initialUsage: TenantUsage = {
   period: "2026-09",
-  metaMessages: {
-    freeCustomerCareWindow: 1420, // Inside 24h window ($0 cost!)
-    billableTemplateMarketing: 48, // Outside window marketing
-    billableTemplateUtility: 12,
-  },
-  geminiTokens: {
-    promptTokens: 485000,
-    candidateTokens: 112000,
-    totalCostEstimatedUsd: 0.09, // ~$0.09 USD!
-  },
+  meta_messages_free_window: 1420,
+  meta_messages_paid: 60,
+  gemini_tokens_used: 597000,
 };

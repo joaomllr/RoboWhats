@@ -7,15 +7,17 @@
     "build": "tsc",
     "watch": "tsc -w",
     "lint": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run tests/signature.test.ts tests/stateMachine.test.ts tests/rls.test.ts",
     "test:watch": "vitest",
-    "test:rules": "vitest run tests/rules.test.ts"
+    "test:rls": "vitest run tests/rls.test.ts",
+    "test:rules": "vitest run tests/rls.test.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@google/genai": "^2.23.0",
+    "@supabase/supabase-js": "^2.116.0",
     "cors": "^2.8.5",
     "firebase-admin": "^13.0.0",
     "firebase-functions": "^6.0.1",

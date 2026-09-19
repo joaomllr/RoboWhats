@@ -10,50 +10,40 @@ The **WhatsApp Sales Hub** platform processes third-party personal data, leads, 
 ### 2.1. Secret Management (Zero Plaintext Secrets)
 - **Rule**: No secrets, credentials, or private keys are ever stored in source code, committed files, or plaintext `.env` files.
 - **Implementation**: 
-  - All sensitive tokens (`META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_ACCESS_TOKEN`, `GEMINI_API_KEY`) reside exclusively in **Google Cloud Secret Manager**.
-  - In Firebase Functions 2nd Generation, secrets are injected at runtime via the `secrets: [...]` configuration option in function definitions.
+  - All sensitive backend secrets (`META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN`, `META_ACCESS_TOKEN`, `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are managed via Supabase Vault / Edge Function secrets (`supabase secrets set`).
+  - The client dashboard frontend only receives the public `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, which have zero administrative privileges.
   - Development and CI rely exclusively on mocked payloads or ephemeral test keys.
   - Strict `.gitignore` rules prevent accidental commits of `.env` or credential files.
 
 ### 2.2. Webhook Signature Verification (HMAC SHA-256)
 - **Rule**: Every HTTP request received at the WhatsApp Cloud API webhook endpoint must be verified against the Meta App Secret before parsing or processing.
 - **Implementation**:
-  - The raw HTTP request body is evaluated against the `X-Hub-Signature-256` header using HMAC SHA-256.
+  - The raw HTTP request body is evaluated against the `X-Hub-Signature-256` header using HMAC SHA-256 with constant-time equality check to eliminate timing attacks.
   - If the signature is missing, invalid, or malformed, the request is immediately terminated with HTTP `403 Forbidden`.
   - Suspicious requests are logged with timestamp and event metadata only (no body echo).
 
-### 2.3. Firestore Security Rules: Deny by Default & Tenant Isolation
-- **Rule**: The database must reject all operations unless an explicit permission is granted for the authenticated user's tenant.
+### 2.3. Postgres Row Level Security (RLS): Deny by Default & Tenant Isolation
+- **Rule**: The Postgres database must reject all operations unless an explicit policy permits the authenticated user's tenant.
 - **Implementation**:
-  - Base rule: `match /{document=**} { allow read, write: if false; }`.
-  - Tenant scope: `match /tenants/{tenantId}/{document=**}` allows access if and only if:
-    ```cel
-    request.auth != null && request.auth.token.tenantId == tenantId
-    ```
-  - Cross-tenant read/write attempts are impossible at the database engine level.
-  - Internal collections such as `phoneNumberIndex` and `usage` counters cannot be modified directly by client SDKs.
-  - Automated tests with `@firebase/rules-unit-testing` (`functions/tests/rules.test.ts`) run against a live Firestore Emulator in CI (`firebase emulators:exec --only firestore`, see `.github/workflows/ci.yml`) to verify that cross-tenant access is strictly blocked. These tests fail loudly (rather than skipping silently) if the emulator is unreachable.
+  - RLS is enabled on all tables: `public.tenants`, `public.tenant_users`, `public.phone_number_index`, `public.contacts`, `public.conversations`, `public.usage`.
+  - Strict "deny by default": without an explicit policy, unauthenticated (anon) and unauthorized requests receive empty query results or HTTP 401 / Postgres 42501 error ("new row violates row-level security policy").
+  - Tenant scope:
+    - Tables `contacts` and `conversations` require `tenant_id in (select tenant_id from public.tenant_users where user_id = (select auth.uid()))`.
+    - Cross-tenant read/write attempts are rejected at the Postgres engine level.
+    - Server-only tables `phone_number_index` and `usage` have zero client-side policies; they are accessed exclusively by Supabase Edge Functions via `service_role`.
+  - Automated tests in `functions/tests/rls.test.ts` execute against Postgres in CI to verify that cross-tenant access and unauthorized writes are strictly blocked with error code 42501. Tests fail loudly if the database is unreachable.
 
-### 2.4. Firebase App Check Enforcement — ⚠️ PLANNED, NOT YET ENFORCED
-- **Rule**: All custom HTTPS Cloud Functions invoked by the self-service dashboard frontend must require valid Firebase App Check tokens in **Enforcement Mode** (not just monitoring) before onboarding real customer tenants.
-- **Current status (as of this writing)**: `enforceAppCheck` is set to `false` on the `onboardTenant` callable function (see `functions/src/index.ts`), and the dashboard frontend does not yet initialize the App Check SDK. This is a known, tracked gap — not an oversight to be assumed fixed.
-- **Required before production use with real customers**:
-  1. Register a reCAPTCHA Enterprise (or App Check debug/reCAPTCHA v3) provider in the Firebase console for this project.
-  2. Initialize App Check in the dashboard frontend (`apps/dashboard/src/lib/firebase.ts`) with `initializeAppCheck()` before any Firestore/Functions call.
-  3. Set `enforceAppCheck: true` on every callable Cloud Function (`onboardTenant`, `assignAgent`).
-  4. Re-verify with a manual test that an unverified origin is rejected.
-  - Note: The Meta WhatsApp webhook is intentionally exempt from App Check — it is verified instead via HMAC SHA-256 signature checking (see 2.2), since Meta's servers cannot carry an App Check token.
-
-### 2.5. Least Privilege IAM
-- **Rule**: Cloud Functions must never run under the default project Service Account with Editor/Owner roles.
+### 2.4. Service Role Isolation & Token Authorization
+- **Rule**: Client apps must never possess or execute with `service_role` credentials.
 - **Implementation**:
-  - Dedicated service accounts are specified for backend services with granular permissions (e.g. `roles/datastore.user`, `roles/secretmanager.secretAccessor`).
+  - Edge Functions authenticate end-user requests via Supabase JWT verification (`auth.uid()`).
+  - When Edge Functions operate in backend jobs (e.g., incoming Meta webhook, scheduled proactive recovery), they use `service_role` but strictly resolve `tenant_id` from trusted database lookups (`phone_number_index`) before reading or modifying tenant rows.
 
-### 2.6. Authentication & Server-Side Custom Claims
-- **Rule**: Multi-tenant authorization depends on tamper-proof claims minted on the server.
+### 2.5. Least Privilege & Multi-Tenant Authorization
+- **Rule**: Multi-tenant authorization depends on verified membership records in `public.tenant_users`.
 - **Implementation**:
-  - Firebase Authentication requires email verification before granting full operational access.
-  - Claims (`tenantId`, `role`) are assigned strictly via trusted Cloud Functions (Admin SDK) during onboarding and cannot be modified by client requests.
+  - Supabase Authentication enforces user identity.
+  - Role permissions (`admin` vs `agent`) are evaluated through relational constraints and RLS subqueries.
 
 ### 2.7. Structured Logging & PII Protection
 - **Rule**: Customer messages, personal identifiers, and tokens must never appear in application logs.

@@ -79,6 +79,10 @@ export const App: React.FC = () => {
 
     const newMsg: ChatMessage = {
       id: `m_${Date.now()}`,
+      contact_id: contactId,
+      direction: "outbound",
+      message_body: text,
+      message_type: "text",
       sender: "agent",
       text,
       timestamp: "Agora",
@@ -169,10 +173,10 @@ export const App: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                    {tenant.companyName}
+                    {tenant.name}
                   </h1>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-brand-100 text-brand-800 dark:bg-brand-950 dark:text-brand-300">
-                    Plano {tenant.plan}
+                    Plano {tenant.plan_tier}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-slate-400">
