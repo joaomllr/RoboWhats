@@ -21,7 +21,12 @@ Deno.serve(async (req: Request) => {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    const expectedToken = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN") || "test_verify_token";
+    const expectedToken = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN");
+
+    if (!expectedToken) {
+      console.error("META_WEBHOOK_VERIFY_TOKEN is not configured.");
+      return new Response("Server misconfigured", { status: 500 });
+    }
 
     if (mode === "subscribe" && token === expectedToken) {
       return new Response(challenge, { status: 200 });
@@ -37,12 +42,17 @@ Deno.serve(async (req: Request) => {
   // 2. Security: HMAC SHA-256 Signature Verification
   // -------------------------------------------------------------
   const signature = req.headers.get("x-hub-signature-256");
-  const appSecret = Deno.env.get("META_APP_SECRET") || "test_app_secret";
+  const appSecret = Deno.env.get("META_APP_SECRET");
   const rawBodyBytes = new Uint8Array(await req.arrayBuffer());
+
+  if (!appSecret) {
+    console.error("META_APP_SECRET is not configured.");
+    return new Response("Server misconfigured", { status: 500 });
+  }
 
   const isValidSignature = await validateMetaSignature(rawBodyBytes, signature, appSecret);
 
-  if (!isValidSignature && Deno.env.get("ENVIRONMENT") !== "test") {
+  if (!isValidSignature) {
     console.warn("Security Alert: Invalid Meta HMAC signature rejected.");
     return new Response("Forbidden", { status: 403 });
   }
