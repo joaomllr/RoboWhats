@@ -117,7 +117,8 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
         candidateTokens: data.usageMetadata?.candidatesTokenCount || 75,
       },
     };
-  } catch {
+  } catch (err) {
+    console.error("Gemini turn failed, usando fallback:", err);
     return generateMockTurn(incomingMessage, contactName, currentStage);
   }
 }

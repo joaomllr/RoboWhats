@@ -68,6 +68,14 @@ Deno.serve(async (req: Request) => {
     const messages = change?.messages;
     const contacts = change?.contacts;
 
+    // A Meta reporta a entrega de cada mensagem enviada (sent / delivered /
+    // read / failed) num callback separado, sem o campo "messages". Um envio
+    // aceito pela API ainda pode falhar na entrega, e o motivo só aparece aqui.
+    const statuses = change?.statuses;
+    if (statuses?.length) {
+      console.log(`Meta status callback: ${JSON.stringify(statuses)}`);
+    }
+
     if (!metadata?.phone_number_id || !messages || messages.length === 0) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }

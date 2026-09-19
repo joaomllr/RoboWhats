@@ -66,6 +66,7 @@ export async function sendWhatsAppMessage(
 
   // Mock mode for local tests / pending Meta credentials (Bloqueio A)
   if (!accessToken || accessToken === "mock-token") {
+    console.warn("META_ACCESS_TOKEN ausente — respondendo em modo mock, nada foi enviado à Meta.");
     return {
       success: true,
       messageId: `wamid.mock_${Date.now()}`,
@@ -98,6 +99,12 @@ export async function sendWhatsAppMessage(
 
     if (response.ok) {
       const data = await response.json();
+      // A Meta devolve em contacts[0].wa_id o número para o qual ela realmente
+      // resolveu o destinatário. Se diferir do que enviamos, é ali que a
+      // entrega se perde mesmo com a API respondendo 200.
+      console.log(
+        `Meta send accepted — input: ${candidate}, resolved wa_id: ${data.contacts?.[0]?.wa_id}, message_id: ${data.messages?.[0]?.id}`
+      );
       return {
         success: true,
         messageId: data.messages?.[0]?.id || `wamid.${Date.now()}`,
