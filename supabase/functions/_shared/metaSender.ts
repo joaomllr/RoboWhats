@@ -45,13 +45,17 @@ export async function sendWhatsAppMessage(
     };
   }
 
-  const url = `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`;
+  // Usamos v26.0 (a mesma versão testada manualmente com sucesso no Graph API
+  // Explorer) em vez de v21.0. Para números de teste (sandbox), versões antigas
+  // da Graph API podem retornar erro (#131030) "Recipient phone number not in
+  // allowed list" mesmo com o destinatário corretamente cadastrado — o mesmo
+  // payload em v26.0 funciona normalmente.
+  const url = `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: "whatsapp",
-    recipient_type: "individual",
     to,
     type: "text",
-    text: { preview_url: false, body: text },
+    text: { body: text },
   };
 
   const response = await fetch(url, {
