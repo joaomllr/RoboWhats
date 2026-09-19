@@ -78,15 +78,11 @@ Deno.serve(async (req: Request) => {
     const messageText = incomingMessage.text?.body || "";
     const senderName = contacts?.[0]?.profile?.name || "Cliente";
 
-    // A Meta pode enviar o campo "from" da mensagem recebida com o 9º dígito
-    // (padrão brasileiro de celular, ex: 5551981186641), mas exige o número
-    // no formato normalizado (sem o 9, ex: 555181186641) para ENVIAR mensagens
-    // de volta — esse formato normalizado vem em contacts[0].wa_id. Usar "from"
-    // diretamente no envio causa erro (#131030) "Recipient phone number not in
-    // allowed list" mesmo com o destinatário corretamente cadastrado.
+    // Para celulares brasileiros a Meta entrega "from" e "wa_id" no formato
+    // legado de 12 dígitos (sem o 9º dígito). A allowed list de números de
+    // teste guarda o número com o 9, e o match é exato — quem reconcilia as
+    // duas formas é brazilianPhoneVariants() dentro de sendWhatsAppMessage.
     const sendToPhone = contacts?.[0]?.wa_id || senderPhone;
-
-    console.log(`Phone diagnostics — from: ${senderPhone}, wa_id: ${contacts?.[0]?.wa_id}, sendToPhone: ${sendToPhone}`);
 
     // -------------------------------------------------------------
     // 3. Multi-Tenant Routing via phone_number_index

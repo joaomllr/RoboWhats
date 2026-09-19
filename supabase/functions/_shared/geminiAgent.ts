@@ -94,6 +94,8 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
     });
 
     if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error(`Gemini API error [${res.status}]: ${errBody}`);
       return generateMockTurn(incomingMessage, contactName, currentStage);
     }
 

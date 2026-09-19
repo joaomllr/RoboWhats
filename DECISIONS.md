@@ -149,3 +149,44 @@ This document records the architectural and technical decisions made during the 
   - Strengthened cross-selling potential between Fluxi Bots, Fluxi Sites, and Fluxi Automações.
 
 
+
+---
+
+## ADR-011: Reconciliação do 9º dígito brasileiro no envio via Meta Cloud API
+
+- **Status**: Accepted
+- **Context**:
+  - O pipeline de recebimento (HMAC → roteamento multi-tenant → Gemini) funcionava,
+    mas todo envio de resposta falhava com `(#131030) Recipient phone number not in
+    allowed list`, mesmo com o destinatário cadastrado e verificado por SMS na lista
+    de números de teste da Meta. Só existiam linhas `direction = 'inbound'` em
+    `conversations`.
+  - O mesmo payload, com o mesmo token, executado manualmente no Graph API Explorer,
+    funcionava. Isso levou a hipóteses erradas (token inválido, versão da Graph API,
+    app não assinado ao WABA, diferenças do runtime Deno) — todas descartadas.
+  - A causa real apareceu comparando o `to` dos dois requests: a Edge Function enviava
+    `555181186641` (12 dígitos, forma legada **sem** o 9º dígito), enquanto o teste
+    manual bem-sucedido usava `5551981186641` (13 dígitos, **com** o 9).
+  - Para celulares brasileiros a Meta entrega `from` e `contacts[0].wa_id` na forma
+    legada de 12 dígitos, mas a allowed list de números de teste guarda o número
+    exatamente como foi cadastrado no painel (com o 9) e o match é exato. A sandbox
+    rejeita a forma de 12 dígitos antes de qualquer normalização.
+- **Decision**:
+  - `sendWhatsAppMessage` passa o destinatário por `brazilianPhoneVariants()`, que
+    gera as duas formas (com e sem o 9º dígito) para números `+55` de celular, e
+    tenta a forma **com** o 9 primeiro — aceita tanto pela sandbox quanto por números
+    de produção.
+  - Em caso de falha especificamente com o código `131030`, tenta a forma alternativa.
+    Qualquer outro código de erro interrompe imediatamente, sem retry.
+  - Erros de envio logam `to`, `status`, `code` e `fbtrace_id` (nunca o token), para
+    correlação com o suporte da Meta.
+  - O payload passou a incluir `recipient_type: "individual"` e `text.preview_url`,
+    alinhando com o exemplo canônico de `POST /{phone-number-id}/messages`.
+- **Consequences**:
+  - O envio funciona tanto com número de teste (allowed list, match exato) quanto com
+    número de produção, sem depender do formato que a Meta escolher entregar no webhook.
+  - O comentário anterior em `webhook/index.ts` — que afirmava o oposto, que `wa_id`
+    era a forma exigida para envio — foi corrigido: `wa_id` continua sendo a fonte do
+    número, mas quem reconcilia o formato é o `metaSender`.
+  - Fica registrado que `#131030` deve ser lido como "formato do destinatário não bate
+    com o cadastrado", não como problema de token, versão de API ou runtime.
