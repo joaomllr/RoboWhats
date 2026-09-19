@@ -71,7 +71,11 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
     // parâmetro de query ?key= (usado pelas chaves antigas) retorna 401
     // ACCESS_TOKEN_TYPE_UNSUPPORTED para esse formato. Enviamos sempre via header, que
     // funciona para os dois formatos de chave.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+    //
+    // O modelo "gemini-2.5-flash" foi descontinuado para novas contas em 2026
+    // (API retorna 404 "no longer available to new users"). Usamos o sucessor
+    // indicado pela própria API: "gemini-3.6-flash".
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`;
 
     const res = await fetch(url, {
       method: "POST",
