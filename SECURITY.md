@@ -32,14 +32,17 @@ The **WhatsApp Sales Hub** platform processes third-party personal data, leads, 
     ```
   - Cross-tenant read/write attempts are impossible at the database engine level.
   - Internal collections such as `phoneNumberIndex` and `usage` counters cannot be modified directly by client SDKs.
-  - Automated tests with `@firebase/rules-unit-testing` run in CI to verify that cross-tenant access is strictly blocked.
+  - Automated tests with `@firebase/rules-unit-testing` (`functions/tests/rules.test.ts`) run against a live Firestore Emulator in CI (`firebase emulators:exec --only firestore`, see `.github/workflows/ci.yml`) to verify that cross-tenant access is strictly blocked. These tests fail loudly (rather than skipping silently) if the emulator is unreachable.
 
-### 2.4. Firebase App Check Enforcement
-- **Rule**: All custom HTTPS Cloud Functions invoked by the self-service dashboard frontend require valid Firebase App Check tokens in **Enforcement Mode** (not just monitoring).
-- **Implementation**:
-  - Web frontend integrates App Check with reCAPTCHA Enterprise.
-  - Backend functions enforce App Check, blocking unauthorized bots, scrapers, and unverified origins.
-  - Note: The Meta WhatsApp webhook uses HMAC SHA-256 signature verification instead of App Check.
+### 2.4. Firebase App Check Enforcement — ⚠️ PLANNED, NOT YET ENFORCED
+- **Rule**: All custom HTTPS Cloud Functions invoked by the self-service dashboard frontend must require valid Firebase App Check tokens in **Enforcement Mode** (not just monitoring) before onboarding real customer tenants.
+- **Current status (as of this writing)**: `enforceAppCheck` is set to `false` on the `onboardTenant` callable function (see `functions/src/index.ts`), and the dashboard frontend does not yet initialize the App Check SDK. This is a known, tracked gap — not an oversight to be assumed fixed.
+- **Required before production use with real customers**:
+  1. Register a reCAPTCHA Enterprise (or App Check debug/reCAPTCHA v3) provider in the Firebase console for this project.
+  2. Initialize App Check in the dashboard frontend (`apps/dashboard/src/lib/firebase.ts`) with `initializeAppCheck()` before any Firestore/Functions call.
+  3. Set `enforceAppCheck: true` on every callable Cloud Function (`onboardTenant`, `assignAgent`).
+  4. Re-verify with a manual test that an unverified origin is rejected.
+  - Note: The Meta WhatsApp webhook is intentionally exempt from App Check — it is verified instead via HMAC SHA-256 signature checking (see 2.2), since Meta's servers cannot carry an App Check token.
 
 ### 2.5. Least Privilege IAM
 - **Rule**: Cloud Functions must never run under the default project Service Account with Editor/Owner roles.

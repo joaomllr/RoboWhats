@@ -13,23 +13,26 @@ describe("Firestore Security Rules — Multi-Tenant Isolation & Deny-by-Default"
   const rulesPath = path.resolve(__dirname, "../../firestore.rules");
 
   beforeAll(async () => {
-    // Only attempt connection if emulator host is available, or mock if offline
-    try {
-      if (fs.existsSync(rulesPath)) {
-        const rules = fs.readFileSync(rulesPath, "utf8");
-        testEnv = await initializeTestEnvironment({
-          projectId: "demo-whatsapp-sales-hub",
-          firestore: {
-            rules,
-            host: process.env.FIRESTORE_EMULATOR_HOST?.split(":")[0] || "localhost",
-            port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(":")[1] || 8080),
-          },
-        });
-      }
-    } catch (e) {
-      // Emulator not active in pure unit test environment; rules tested when emulator is online
-      console.log("Firestore emulator not detected at runtime, running logical assertion checks.");
+    // The Firestore emulator is REQUIRED for this file. These tests verify the
+    // single most important security property of the whole product — that a
+    // tenant cannot read another tenant's data — and a silently-skipped
+    // assertion here is indistinguishable from a passing one in CI output.
+    // If the emulator is not reachable, fail loudly instead of degrading to a
+    // no-op: run via `firebase emulators:exec --only firestore "npm run test"`
+    // (see .github/workflows/ci.yml) or `firebase emulators:start` locally.
+    if (!fs.existsSync(rulesPath)) {
+      throw new Error(`firestore.rules not found at expected path: ${rulesPath}`);
     }
+
+    const rules = fs.readFileSync(rulesPath, "utf8");
+    testEnv = await initializeTestEnvironment({
+      projectId: "demo-whatsapp-sales-hub",
+      firestore: {
+        rules,
+        host: process.env.FIRESTORE_EMULATOR_HOST?.split(":")[0] || "localhost",
+        port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(":")[1] || 8080),
+      },
+    });
   });
 
   afterAll(async () => {
@@ -53,9 +56,7 @@ describe("Firestore Security Rules — Multi-Tenant Isolation & Deny-by-Default"
   });
 
   it("should reject unauthenticated access to any tenant data", async () => {
-    if (!testEnv) return;
-
-    const unauthedDb = testEnv.unauthenticatedContext().firestore();
+    const unauthedDb = testEnv!.unauthenticatedContext().firestore();
     await assertFails(unauthedDb.collection("tenants").doc("tenant_a").get());
     await assertFails(
       unauthedDb.collection("tenants").doc("tenant_a").collection("contacts").doc("123").get()
@@ -63,10 +64,8 @@ describe("Firestore Security Rules — Multi-Tenant Isolation & Deny-by-Default"
   });
 
   it("should block cross-tenant read and write attempts", async () => {
-    if (!testEnv) return;
-
     // User authenticated for tenant_a
-    const tenantAUserDb = testEnv
+    const tenantAUserDb = testEnv!
       .authenticatedContext("user_alice", {
         tenantId: "tenant_a",
         role: "admin",
@@ -93,9 +92,7 @@ describe("Firestore Security Rules — Multi-Tenant Isolation & Deny-by-Default"
   });
 
   it("should block client access to internal phoneNumberIndex collection", async () => {
-    if (!testEnv) return;
-
-    const tenantAUserDb = testEnv
+    const tenantAUserDb = testEnv!
       .authenticatedContext("user_alice", {
         tenantId: "tenant_a",
       })
@@ -108,9 +105,7 @@ describe("Firestore Security Rules — Multi-Tenant Isolation & Deny-by-Default"
   });
 
   it("should prevent tenant clients from modifying usage documents directly", async () => {
-    if (!testEnv) return;
-
-    const tenantAUserDb = testEnv
+    const tenantAUserDb = testEnv!
       .authenticatedContext("user_alice", {
         tenantId: "tenant_a",
       })

@@ -39,7 +39,15 @@ export const whatsappWebhook = onRequest(
       const token = req.query["hub.verify_token"];
       const challenge = req.query["hub.challenge"];
 
-      const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN || "test_verify_token";
+      const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+
+      if (!expectedToken) {
+        console.error(
+          "META_WEBHOOK_VERIFY_TOKEN secret is not configured. Refusing verification handshake."
+        );
+        res.status(500).send("Server misconfigured");
+        return;
+      }
 
       if (mode === "subscribe" && token === expectedToken) {
         res.status(200).send(challenge);
@@ -58,13 +66,22 @@ export const whatsappWebhook = onRequest(
     // B. Security: HMAC SHA-256 Signature Verification
     // -----------------------------------------------------------------
     const signature = (req.headers["x-hub-signature-256"] || "") as string;
-    const appSecret = process.env.META_APP_SECRET || "test_app_secret";
+    const appSecret = process.env.META_APP_SECRET;
     const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+
+    if (!appSecret) {
+      console.error("META_APP_SECRET secret is not configured. Refusing to process webhook.");
+      res.status(500).send("Server misconfigured");
+      return;
+    }
 
     const isSignatureValid = validateMetaSignature(rawBody, signature, appSecret);
 
-    if (!isSignatureValid && process.env.NODE_ENV !== "test") {
-      // Reject suspicious or forged payloads immediately without leaking details
+    if (!isSignatureValid) {
+      // Reject suspicious or forged payloads immediately without leaking details.
+      // This check is UNCONDITIONAL in production code — there is no environment
+      // variable that can bypass it. Tests exercise validateMetaSignature()
+      // directly (see tests/signature.test.ts) rather than disabling this gate.
       console.warn("Security alert: Invalid webhook HMAC SHA-256 signature.");
       res.status(403).send("Forbidden");
       return;
