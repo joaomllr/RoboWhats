@@ -345,3 +345,113 @@ como está no repositório local (onde `_shared/` é irmã de `webhook/`, não
 filha). O deploy que corrigiu o `#131030` e o Gemini já seguiu esse padrão;
 qualquer deploy futuro da função `webhook` precisa repetir isso, ou a função
 sobe sem as dependências e quebra em runtime.
+
+---
+
+## ADR-014: Revisão completa do projeto — segurança, dívida de testes, CI
+
+- **Status**: Accepted
+- **Context**:
+  - A pedido explícito ("reveja todo o projeto novamente e ajuste o que julgar
+    necessário"), foi feita uma varredura de tudo que ainda não tinha sido
+    revisado nesta sessão: `onboard-tenant`, `proactive-recovery`, o diretório
+    `functions/` (paralelo a `supabase/functions/`), os workflows de CI/CD e
+    o `SECURITY.md`. A varredura encontrou problemas reais, não cosméticos.
+- **Achados e correções**:
+  1. **`proactive-recovery` deployada com `verify_jwt: false` e sem nenhuma
+     autenticação própria.** Qualquer pessoa que descobrisse a URL podia
+     disparar envios reais de WhatsApp para contatos reais, sem limite,
+     gastando cota de Meta/Gemini. Corrigido com um segredo compartilhado
+     (`PROACTIVE_RECOVERY_SECRET`, header `x-recovery-secret`), fail-closed —
+     a função responde 500 se o secret não estiver configurado, nunca abre
+     em silêncio. **Pendente: o segredo precisa ser configurado via
+     `supabase secrets set` (não há tool de MCP para isso) — a função fica
+     inoperante, não insegura, até lá.**
+  2. **`proactive-recovery` derrubava o lote inteiro se um único envio
+     falhasse.** Cada contato agora tem seu próprio try/catch.
+  3. **`proactive-recovery` reenviaria o mesmo nudge indefinidamente** para
+     qualquer contato parado, a cada execução, se o cliente nunca respondesse
+     — risco de spam e de violação de política de qualidade de mensageria da
+     Meta. Corrigido: só reengaja se a última mensagem da conversa for nossa
+     E o cliente nunca tiver respondido desde então (checagem por
+     `direction` da última linha de `conversations`).
+  4. **`onboard-tenant` confiava num `userId` arbitrário enviado no corpo da
+     requisição** para decidir quem vincular como admin do tenant novo — sem
+     nenhuma verificação de que o chamador era de fato aquele usuário. Uma
+     chave anon (pública, já exposta no bundle do dashboard) bastava para
+     passar pelo `verify_jwt: true` da plataforma sem provar identidade
+     nenhuma. Corrigido: o `userId` agora vem exclusivamente de
+     `auth.getUser()` sobre o header `Authorization` do próprio chamador.
+  5. **Números de telefone em texto puro nos logs**, nos diagnósticos
+     adicionados durante o diagnóstico do `#131030`/`#130497` — violando a
+     própria política descrita no `SECURITY.md`. Mascarados para os últimos
+     4 dígitos (`maskPhone()` em `metaSender.ts`; `recipient_id` redigido em
+     `webhook/index.ts`).
+  6. **`functions/tests/signature.test.ts` e `stateMachine.test.ts` testavam
+     uma implementação Firebase-era completamente diferente** da que roda em
+     produção (`functions/src/*`, com APIs e formatos de config distintos —
+     função síncrona vs. assíncrona, `BotConfig` aninhado vs. `BotConfigData`
+     plano, motor de state-graph completo vs. transição simples). Passavam
+     verde no CI sem testar uma linha de código real. Reescritos para
+     importar e testar `supabase/functions/_shared/*` diretamente; os 21
+     testes passam contra a implementação real.
+  7. **`functions/tests/rls.test.ts` só testava o lado "negar" da RLS**
+     (cliente anônimo não vê nada) e nunca autenticou como usuário real — o
+     ponto cego exato que deixou passar a recursão infinita do ADR-012.
+     Adicionada uma suíte que fabrica dois tenants e dois usuários reais via
+     Admin API e prova as duas metades que faltavam: um usuário autenticado
+     consegue ler os próprios dados e não consegue ler nem escrever nos de
+     outro tenant. Verificado manualmente via SQL direto contra o banco real
+     (7/7 asserções corretas) antes de confiar na reescrita — a suíte em si
+     não pôde ser executada de ponta a ponta neste ambiente porque o proxy de
+     rede do sandbox bloqueia `nsotmdvalhcqrigepkcu.supabase.co` para
+     bibliotecas HTTP comuns (mesma restrição que impediu testar a migração
+     do Gemini e o `curl` no `proactive-recovery`). **Pendente: a suíte
+     autenticada exige `SUPABASE_SERVICE_ROLE_KEY` como secret do GitHub
+     Actions — sem isso, ela pula os próprios testes de propósito (nunca
+     falha por engano) e avisa no output.**
+  8. **`functions/src/*` era uma implementação Firebase-era inteira,
+     abandonada e nunca removida** (`firebase-admin`, `firebase-functions`,
+     `@google/genai`, `cors`, `zod`, `@firebase/rules-unit-testing` como
+     dependências), responsável por boa parte das 23 vulnerabilidades
+     (1 crítica) que `npm audit` apontava. Removida por completo; `npm audit
+     --omit=dev --audit-level=high` agora reporta 0.
+  9. **CI estava vermelho desde pelo menos o commit `4ce6fa4`** — toda
+     execução em `main` falhava porque `@supabase/supabase-js@2.116+` exige
+     Node 22+ (o módulo `realtime-js` precisa de um `WebSocket` nativo,
+     ausente no Node 20) e `ci.yml`/`deploy.yml` fixavam Node 20. Corrigido
+     bumpando os dois workflows para Node 22. Isso não foi causado por nada
+     desta sessão — é uma falha pré-existente da base, confirmada olhando o
+     histórico de execuções do CI em `main` antes de mexer em qualquer coisa.
+  10. **`SECURITY.md` fazia afirmações que não correspondiam ao código**:
+      dizia que toda Edge Function autentica via `auth.uid()` (falso para
+      `onboard-tenant`, que confiava em input do cliente, e para
+      `proactive-recovery`, que não tinha autenticação nenhuma); dizia que
+      telefones nunca aparecem em log (falso, ver item 5); dizia que o CI
+      roda `npm audit` bloqueando PRs (o script existia, nenhum workflow o
+      chamava); descrevia limites de "Cloud Functions 2nd Gen", um resquício
+      do design original em Firebase, abandonado. Corrigido para refletir a
+      arquitetura e o comportamento reais, incluindo os dois incidentes
+      registrados (a recursão de RLS do ADR-012, o vazamento de telefone
+      deste ADR) como parte do próprio histórico de segurança do documento,
+      em vez de apagados da memória institucional.
+  11. `.github/workflows/deploy.yml` fazia deploy de `proactive-recovery`
+      **sem** `--no-verify-jwt` — o próximo deploy automático (contingente a
+      `SUPABASE_ACCESS_TOKEN` existir como secret) reverteria silenciosamente
+      a correção do item 1, exigindo um JWT de usuário Supabase que um
+      cron/scheduler nunca teria. Corrigido para incluir a flag.
+- **Consequences**:
+  - Duas configurações manuais ficam pendentes, fora do alcance de qualquer
+    ferramenta disponível nesta sessão: o secret `PROACTIVE_RECOVERY_SECRET`
+    no Supabase (`supabase secrets set`) e `SUPABASE_SERVICE_ROLE_KEY` como
+    secret do GitHub Actions (para a suíte de RLS autenticada rodar em vez de
+    pular). Nenhuma delas bloqueia o restante do sistema — ambas falham
+    fechado (função inoperante / teste pulado), nunca abertas.
+  - `functions/` deixou de ter runtime próprio — hoje é só a suíte de testes
+    que exercita `supabase/functions/_shared/*` e o Postgres real. Isso é
+    intencional: qualquer lógica de negócio nova deve nascer direto em
+    `supabase/functions/`, nunca duplicada aqui.
+  - O `SECURITY.md` agora documenta os dois incidentes reais encontrados
+    nesta sessão (recursão de RLS, telefones em log) como parte do histórico
+    do documento — decisão deliberada de manter a memória institucional em
+    vez de reescrever a história como se o sistema sempre tivesse sido assim.

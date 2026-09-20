@@ -71,9 +71,15 @@ Deno.serve(async (req: Request) => {
     // A Meta reporta a entrega de cada mensagem enviada (sent / delivered /
     // read / failed) num callback separado, sem o campo "messages". Um envio
     // aceito pela API ainda pode falhar na entrega, e o motivo só aparece aqui.
+    // recipient_id (telefone) é mascarado antes de logar — SECURITY.md proíbe
+    // PII em texto puro nos logs.
     const statuses = change?.statuses;
     if (statuses?.length) {
-      console.log(`Meta status callback: ${JSON.stringify(statuses)}`);
+      const redacted = statuses.map((s) => ({
+        ...s,
+        recipient_id: s.recipient_id ? `***${s.recipient_id.slice(-4)}` : s.recipient_id,
+      }));
+      console.log(`Meta status callback: ${JSON.stringify(redacted)}`);
     }
 
     if (!metadata?.phone_number_id || !messages || messages.length === 0) {

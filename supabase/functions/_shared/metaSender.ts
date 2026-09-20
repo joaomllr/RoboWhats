@@ -18,6 +18,15 @@ const BRAZIL_COUNTRY_CODE = "55";
 const ERROR_RECIPIENT_NOT_ALLOWED = 131030;
 
 /**
+ * SECURITY.md proíbe telefones em texto puro nos logs. Mantém só os últimos 4
+ * dígitos — suficiente para correlacionar um envio a um contato durante
+ * depuração, sem expor o número completo do cliente em log persistido.
+ */
+function maskPhone(phone: string): string {
+  return phone.length > 4 ? `***${phone.slice(-4)}` : "***";
+}
+
+/**
  * A Meta entrega `from`/`wa_id` de celulares brasileiros no formato legado de
  * 12 dígitos (55 + DDD + 8 dígitos, sem o 9º dígito), mas a allowed list de
  * números de teste guarda o número exatamente como foi cadastrado no painel —
@@ -103,7 +112,7 @@ export async function sendWhatsAppMessage(
       // resolveu o destinatário. Se diferir do que enviamos, é ali que a
       // entrega se perde mesmo com a API respondendo 200.
       console.log(
-        `Meta send accepted — input: ${candidate}, resolved wa_id: ${data.contacts?.[0]?.wa_id}, message_id: ${data.messages?.[0]?.id}`
+        `Meta send accepted — input: ${maskPhone(candidate)}, resolved wa_id: ${maskPhone(data.contacts?.[0]?.wa_id || "")}, message_id: ${data.messages?.[0]?.id}`
       );
       return {
         success: true,
@@ -125,7 +134,7 @@ export async function sendWhatsAppMessage(
     }
 
     console.warn(
-      `Meta send failed — to: ${candidate}, status: ${response.status}, code: ${code}, fbtrace_id: ${fbtraceId}`
+      `Meta send failed — to: ${maskPhone(candidate)}, status: ${response.status}, code: ${code}, fbtrace_id: ${fbtraceId}`
     );
 
     if (code !== ERROR_RECIPIENT_NOT_ALLOWED) break;

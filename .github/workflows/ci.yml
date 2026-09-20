@@ -19,10 +19,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20.x
+      # @supabase/supabase-js 2.116+ requires Node 22+ (its realtime-js
+      # dependency needs a native WebSocket global, absent on Node 20) — CI
+      # was pinned to 20 and every run since at least commit 4ce6fa4 failed
+      # with "Node.js detected but native WebSocket not found" the instant
+      # any test called createClient().
+      - name: Setup Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
 
       - name: Install Dependencies
@@ -36,6 +41,9 @@ jobs:
 
       - name: Postgres RLS Isolation Tests
         run: npm run test:rules
+
+      - name: Dependency Audit
+        run: npm run audit
 
       - name: Build Dashboard & Functions
         run: npm run build

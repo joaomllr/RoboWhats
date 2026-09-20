@@ -1,12 +1,8 @@
 {
   "name": "functions",
   "version": "1.0.0",
-  "description": "Cloud Functions for WhatsApp Sales Hub (Webhook, Engine, Onboarding, Recovery)",
-  "main": "dist/index.js",
+  "description": "Test suite that exercises the real Supabase Edge Functions (supabase/functions/) and the live Postgres RLS policies. Contains no runtime code of its own — the src/ implementation was a Firebase-era duplicate abandoned when the project migrated to Supabase, and was deleted after it was found to have silently diverged from production.",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "lint": "tsc --noEmit",
     "test": "vitest run tests/signature.test.ts tests/stateMachine.test.ts tests/rls.test.ts",
     "test:watch": "vitest",
     "test:rls": "vitest run tests/rls.test.ts",
@@ -16,16 +12,9 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@google/genai": "^2.23.0",
-    "@supabase/supabase-js": "^2.116.0",
-    "cors": "^2.8.5",
-    "firebase-admin": "^13.0.0",
-    "firebase-functions": "^6.0.1",
-    "zod": "^3.23.8"
+    "@supabase/supabase-js": "^2.116.0"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^3.0.3",
-    "@types/cors": "^2.8.17",
     "@types/node": "^20.14.9",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
