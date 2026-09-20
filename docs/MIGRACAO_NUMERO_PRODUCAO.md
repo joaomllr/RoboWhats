@@ -83,27 +83,16 @@ Isto o usuário pode fazer sozinho, sem precisar de mim:
 
 Quando todos os itens acima estiverem prontos, seguir para a seção 1.
 
-### 0.4 Decisão pendente — perguntar ao usuário
+### 0.4 Decisões confirmadas (19/set/2026)
 
-Duas coisas ficam em aberto até você (João) decidir:
+1. **O número de teste (`1322904704240693`) permanece ativo** para testes de
+   desenvolvimento depois que o número de produção estiver no ar. As duas
+   linhas convivem em `phone_number_index`, sem custo nem risco adicional.
+2. **O número de produção reaproveita a WABA (`2589390954808409`) e o tenant
+   de teste (`Fluxi - Tenant de Teste`)** já existentes — sem WABA nem tenant
+   separados.
 
-1. **O número de teste (`1322904704240693`) continua ativo para testes de
-   desenvolvimento, ou é aposentado assim que o número de produção estiver
-   no ar?** Manter os dois não tem custo adicional nem risco — a linha em
-   `phone_number_index` de um simplesmente convive com a do outro. A
-   recomendação é manter, porque o número de teste continua útil para
-   validar mudanças de código sem gerar tráfego real.
-2. **O número de produção usa a mesma WABA de teste (`2589390954808409`) e o
-   mesmo tenant (`Fluxi - Tenant de Teste`), ou é um tenant/WABA de produção
-   separado?** Adicionar o número à WABA existente é o caminho mais simples
-   e é o que a Meta sugere por padrão ao clicar em "Adicionar número" dentro
-   de uma WABA já existente. Um tenant separado só faz sentido se você quiser
-   isolar métricas de "teste" vs. "produção" na tabela `usage` — o que hoje
-   não tem nenhuma tela dedicada no dashboard para diferenciar.
-
-O SQL da seção 0.2 já está escrito assumindo a opção recomendada em ambos os
-casos (manter o número de teste, reaproveitar tenant e WABA). Ajuste antes de
-rodar se a decisão for outra.
+O SQL da seção 0.2 já está escrito para esse cenário e não precisa de ajuste.
 
 ---
 

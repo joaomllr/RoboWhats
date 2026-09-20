@@ -273,7 +273,8 @@ callback de status diz a verdade.
 
 ## ADR-013: Migração do número de teste para número BR de produção
 
-- **Status**: Draft — aguardando o número físico (chip) para ser finalizado.
+- **Status**: Draft — decisões de escopo confirmadas (19/set/2026); falta o
+  número físico (chip) e a validação end-to-end para fechar.
 - **Context**:
   - O ADR anterior (seção "Causa confirmada do `#130497`") já havia identificado
     a causa raiz: o número de teste da Meta é americano (`+1 555 153-4871`), e
@@ -310,15 +311,20 @@ callback de status diz a verdade.
     ativa no app comum do WhatsApp) como número de produção, seguindo o
     roteiro em `docs/MIGRACAO_NUMERO_PRODUCAO.md`.
   - Pular a etapa de Confirmar Empresa / Business Verification neste momento.
-  - Novo `phone_number_id`: `<PREENCHER>` (WABA: `<PREENCHER — 2589390954808409 se reaproveitada>`).
+  - Reaproveitar a WABA (`2589390954808409`) e o tenant de teste
+    (`Fluxi - Tenant de Teste`) já existentes — sem WABA nem tenant separados
+    (decisão confirmada em 19/set/2026).
+  - Manter o número de teste (`1322904704240693`) ativo para desenvolvimento
+    depois que o número de produção estiver no ar — as duas linhas convivem
+    em `phone_number_index`, sem custo nem risco adicional (decisão
+    confirmada em 19/set/2026).
+  - Novo `phone_number_id`: `<PREENCHER>`.
   - Data da migração: `<PREENCHER>`.
   - Nenhuma mudança de código foi necessária — confirmado por revisão linha a
     linha de `webhook/index.ts`, `_shared/metaSender.ts` e `_shared/types.ts`
     (ver `docs/MIGRACAO_NUMERO_PRODUCAO.md`, seção 0.1): o roteamento já é
     100% dinâmico via `phone_number_index`. Só a linha nova nessa tabela e o
     secret `META_ACCESS_TOKEN` mudaram.
-  - `<PREENCHER: número de teste 1322904704240693 foi mantido ativo para
-    desenvolvimento / foi aposentado — decisão tomada em <data>>`.
 - **Consequences**:
   - `<PREENCHER após validação end-to-end: confirmação de que uma mensagem
     outbound real foi entregue, sem #131030 nem #130497, e do teste de lead
