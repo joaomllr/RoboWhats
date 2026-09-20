@@ -577,6 +577,35 @@ sobe sem as dependências e quebra em runtime.
     republica automaticamente — mesmo padrão já em uso nos outros projetos
     Cloudflare do usuário.
 
+### Incidente: conexão Git do Workers Builds caiu sozinha, sem republicar nada
+
+Depois do primeiro deploy manual (via wizard) ter funcionado, os 4 pushes
+seguintes em `main` (commits `f274ff8` a `cd75823`) não dispararam nenhum
+build novo — o Cloudflare mostrava só as 3 versões antigas, todas
+"Manually deployed" de ~15h atrás, e a aba Settings → Builds exibia o aviso
+**"This project is disconnected from your Git account"**.
+
+Investigação: a permissão do GitHub App "Cloudflare Workers and Pages" já
+estava em "All repositories" (não era problema de escopo), e a lista de
+Webhooks clássicos do repositório (`Settings → Webhooks`) estava vazia —
+esperado, já que essa integração funciona via GitHub App, não via webhook
+de repositório clássico, então essa tela não ajuda a diagnosticar. Sem
+ferramenta disponível pra inspecionar o registro interno da Cloudflare com
+o GitHub, a causa exata da queda não foi identificada — só contornada.
+
+**Correção**: `Disconnect` seguido de reconectar o repositório do zero em
+Settings → Builds. Ao reconectar, o campo **Path** volta para `/`
+(default) — precisa ser preenchido de novo como `apps/dashboard`, senão
+reproduz o erro original ("No workspaces found") documentado na seção
+anterior. Nota de bug da própria Cloudflare: o campo não preserva o valor
+anterior nem quando o resto da configuração (build/deploy command) vem
+pré-preenchido corretamente.
+
+Enquanto a causa raiz da queda não é conhecida, vale desconfiar de
+silêncio prolongado do Workers Builds (nenhum build novo por várias horas
+apesar de pushes reais) e verificar esse aviso em Settings antes de supor
+que o código publicado está desatualizado por outro motivo.
+
 ---
 
 ## ADR-017: Modelo de Contratação e Cobrança
