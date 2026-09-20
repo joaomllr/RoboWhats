@@ -53,9 +53,10 @@ export async function sendWhatsAppMessage(
   const url = `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`;
   const payload = {
     messaging_product: "whatsapp",
+    recipient_type: "individual",
     to,
     type: "text",
-    text: { body: text },
+    text: { preview_url: false, body: text },
   };
 
   const response = await fetch(url, {
