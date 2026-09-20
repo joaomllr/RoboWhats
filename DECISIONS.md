@@ -237,3 +237,34 @@ Lição para sessões futuras: o número de teste da Meta serve para validar o
 *recebimento* e o formato das chamadas, mas **não** serve para validar entrega a
 destinatários brasileiros. Um `wamid` de sucesso não significa entrega — só o
 callback de status diz a verdade.
+
+---
+
+## ADR-012: RLS de `tenant_users` era recursiva e derrubava todas as leituras
+
+- **Status**: Accepted
+- **Context**:
+  - Ao ligar o dashboard ao Postgres, a primeira query de um usuário autenticado
+    falhava. Simulando um login via `set_config('request.jwt.claims', ...)`, **todas**
+    as tabelas retornavam o mesmo erro:
+    `infinite recursion detected in policy for relation "tenant_users"`.
+  - A policy `tenant_users_can_read_own_membership` consultava `public.tenant_users`
+    de dentro da própria policy de `tenant_users`. O Postgres reaplica a policy na
+    subconsulta e aborta. Como `tenants`, `contacts` e `conversations` também
+    consultam `tenant_users`, o erro se propagava para o schema inteiro.
+  - Efeito prático: a RLS — apresentada no README como o motor de isolamento
+    multi-tenant, "tested in CI" — nunca permitiu uma única leitura autenticada.
+    O dashboard não podia ter sido ligado ao banco; quebraria na primeira query.
+- **Decision**:
+  - A policy passa a ser `using (user_id = (select auth.uid()))`: cada usuário lê o
+    próprio vínculo. Não recorre, e faz as demais policies terminarem normalmente.
+    É também o que o nome da policy sempre prometeu.
+- **Consequences**:
+  - Verificado após a correção, como usuário autenticado: `tenant_users`, `tenants` e
+    `contacts` retornam 1 linha, `conversations` 13 linhas, e `usage` e
+    `phone_number_index` seguem retornando 0 — continuam bloqueadas de propósito
+    para o cliente, acessíveis só via `service_role` nas Edge Functions.
+  - O isolamento segue intacto; o que mudou foi apenas deixar de recorrer.
+  - `functions/tests/rls.test.ts` não pegou isso. Esses testes provavelmente rodam
+    com privilégio que ignora RLS — enquanto não forem revistos, o selo de
+    "RLS tested in CI" do README é falsa sensação de segurança.

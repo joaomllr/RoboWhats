@@ -17,11 +17,13 @@ import {
 interface LandingPageProps {
   onStartOnboarding: (selectedPlan: "starter" | "pro" | "scale") => void;
   onOpenDashboardDemo: () => void;
+  onLogin: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
   onOpenDashboardDemo,
+  onLogin,
 }) => {
   // Live Simulator State
   const [simMessages, setSimMessages] = useState<Array<{ sender: "user" | "bot"; text: string }>>([
@@ -148,6 +150,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               className="text-xs sm:text-sm font-semibold px-3 py-2 text-slate-700 dark:text-slate-200 hover:text-fluxi-blue transition-colors"
             >
               Acessar Painel Demo
+            </button>
+            <button
+              onClick={onLogin}
+              className="text-xs sm:text-sm font-semibold px-3 py-2 text-fluxi-blue hover:underline transition-colors"
+            >
+              Entrar
             </button>
             <button
               onClick={() => handleOpenCheckout("pro")}

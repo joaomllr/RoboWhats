@@ -21,6 +21,7 @@ interface UnifiedInboxProps {
   onToggleAgent: (contactId: string, newAgent: "ai" | "human") => void;
   onUpdateFunnelStage: (contactId: string, newStage: FunnelStage) => void;
   onUpdateLeadScore: (contactId: string, newScore: LeadScore) => void;
+  sendDisabledReason?: string;
 }
 
 export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
@@ -30,6 +31,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
   onToggleAgent,
   onUpdateFunnelStage,
   onUpdateLeadScore,
+  sendDisabledReason,
 }) => {
   const [selectedContactId, setSelectedContactId] = useState<string>(
     contacts[0]?.id || ""
@@ -425,6 +427,11 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
             </div>
 
             {/* Input Box */}
+            {sendDisabledReason ? (
+              <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 text-center">
+                {sendDisabledReason}
+              </div>
+            ) : (
             <form
               onSubmit={handleSend}
               className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2"
@@ -447,6 +454,7 @@ export const UnifiedInbox: React.FC<UnifiedInboxProps> = ({
                 <Send className="w-4 h-4" />
               </button>
             </form>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
