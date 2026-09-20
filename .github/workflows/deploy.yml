@@ -13,10 +13,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20.x
+      # Mantido em paridade com ci.yml — ver comentário lá sobre a exigência
+      # de Node 22+ do @supabase/supabase-js 2.116+.
+      - name: Setup Node.js 22.x
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "npm"
 
       - name: Install Dependencies
@@ -40,5 +42,9 @@ jobs:
         run: |
           supabase functions deploy webhook --project-ref nsotmdvalhcqrigepkcu --no-verify-jwt
           supabase functions deploy onboard-tenant --project-ref nsotmdvalhcqrigepkcu
-          supabase functions deploy proactive-recovery --project-ref nsotmdvalhcqrigepkcu
+          # proactive-recovery não roda com JWT de usuário — quem a chama é um
+          # cron/scheduler segurando PROACTIVE_RECOVERY_SECRET, nunca uma sessão
+          # Supabase. Sem --no-verify-jwt, o CLI usa o padrão (verify_jwt: true)
+          # e passaria a rejeitar até o próprio chamador legítimo.
+          supabase functions deploy proactive-recovery --project-ref nsotmdvalhcqrigepkcu --no-verify-jwt
 

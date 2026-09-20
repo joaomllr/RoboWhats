@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import type { Session } from "@supabase/supabase-js";
 import {
   MessageSquare,
   BarChart3,
@@ -7,7 +8,11 @@ import {
   Sun,
   Moon,
   ExternalLink,
+  LogOut,
 } from "lucide-react";
+import { supabase } from "./lib/supabase";
+import { useTenantData } from "./lib/useTenantData";
+import { LoginPage } from "./components/auth/LoginPage";
 import { LandingPage } from "./components/landing/LandingPage";
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { UnifiedInbox } from "./components/inbox/UnifiedInbox";
@@ -24,9 +29,9 @@ import { Contact, ChatMessage, BotConfig, Tenant, FunnelStage, LeadScore } from 
 
 export const App: React.FC = () => {
   // Navigation View State
-  const [currentView, setCurrentView] = useState<"landing" | "onboarding" | "dashboard">(
-    "landing"
-  );
+  const [currentView, setCurrentView] = useState<
+    "landing" | "login" | "onboarding" | "dashboard"
+  >("landing");
   const [selectedPlanForOnboarding, setSelectedPlanForOnboarding] = useState<
     "starter" | "pro" | "scale"
   >("pro");
@@ -35,12 +40,32 @@ export const App: React.FC = () => {
   // Dark Mode
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Application Data State
+  // Demo Data State (landing "Painel Demo", sem login)
   const [tenant, setTenant] = useState<Tenant>(initialTenant);
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>(initialMessages);
   const [botConfig, setBotConfig] = useState<BotConfig>(initialBotConfig);
   const [usage] = useState(initialUsage);
+
+  // Sessão real (Supabase Auth)
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setCurrentView(nextSession ? "dashboard" : "landing");
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const live = useTenantData(session?.user.id ?? null);
+  const isLive = Boolean(session);
+
+  // Logado: dados reais do Postgres. Sem login: a maquete de demonstração.
+  const viewTenant = isLive ? live.tenant ?? initialTenant : tenant;
+  const viewContacts = isLive ? live.contacts : contacts;
+  const viewMessagesMap = isLive ? live.messagesMap : messagesMap;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -116,16 +141,24 @@ export const App: React.FC = () => {
   };
 
   // Inbox: Update Funnel Stage
-  const handleUpdateFunnelStage = (contactId: string, newStage: FunnelStage) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === contactId ? { ...c, funnelStage: newStage } : c))
-    );
+  const handleUpdateFunnelStage = async (contactId: string, newStage: FunnelStage) => {
+    if (isLive) {
+      await supabase.from("contacts").update({ stage: newStage }).eq("id", contactId);
+      live.reload();
+      return;
+    }
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? { ...c, stage: newStage } : c)));
   };
 
   // Inbox: Update Lead Score
-  const handleUpdateLeadScore = (contactId: string, newScore: LeadScore) => {
+  const handleUpdateLeadScore = async (contactId: string, newScore: LeadScore) => {
+    if (isLive) {
+      await supabase.from("contacts").update({ lead_score: newScore }).eq("id", contactId);
+      live.reload();
+      return;
+    }
     setContacts((prev) =>
-      prev.map((c) => (c.id === contactId ? { ...c, leadScore: newScore } : c))
+      prev.map((c) => (c.id === contactId ? { ...c, lead_score: newScore } : c))
     );
   };
 
@@ -143,8 +176,11 @@ export const App: React.FC = () => {
         <LandingPage
           onStartOnboarding={handleStartOnboarding}
           onOpenDashboardDemo={() => setCurrentView("dashboard")}
+          onLogin={() => setCurrentView("login")}
         />
       )}
+
+      {currentView === "login" && <LoginPage onBack={() => setCurrentView("landing")} />}
 
       {/* ============================================================= */}
       {/* 2. ONBOARDING WIZARD VIEW                                     */}
@@ -193,16 +229,23 @@ export const App: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                      {tenant.name}
+                      {viewTenant.name}
                     </h2>
                     <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase bg-fluxi-blueLight text-fluxi-blue dark:bg-fluxi-blue/10 dark:text-fluxi-blueLight border border-fluxi-blue/20">
-                      Plano {tenant.plan_tier}
+                      Plano {viewTenant.plan_tier}
                     </span>
+                    {!isLive && (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 text-amber-700 border border-amber-300">
+                        Demo
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400">
                     <span className="flex items-center gap-1 text-whatsapp-accent font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-whatsapp-accent animate-pulse" />
-                      {tenant.displayPhoneNumber} (API Oficial)
+                      {isLive
+                        ? `${viewContacts.length} contato(s) · dados reais`
+                        : `${viewTenant.displayPhoneNumber} (API Oficial)`}
                     </span>
                   </div>
                 </div>
@@ -273,23 +316,49 @@ export const App: React.FC = () => {
                 <span>Ver Landing Fluxi</span>
                 <ExternalLink className="w-3 h-3" />
               </button>
+
+              {isLive && (
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-fluxi-graphiteLight transition-colors"
+                  title="Sair"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sair</span>
+                </button>
+              )}
             </div>
           </header>
 
           {/* Main Dashboard Canvas */}
           <main className="flex-1 overflow-y-auto">
-            {activeTab === "inbox" && (
+            {isLive && live.error && (
+              <div className="m-4 px-4 py-3 rounded-xl bg-fluxi-coral/10 border border-fluxi-coral/30 text-fluxi-coral text-xs font-semibold">
+                {live.error}
+              </div>
+            )}
+
+            {isLive && live.loading && (
+              <div className="p-8 text-center text-sm text-slate-400">Carregando conversas...</div>
+            )}
+
+            {activeTab === "inbox" && !(isLive && live.loading) && (
               <UnifiedInbox
-                contacts={contacts}
-                messagesMap={messagesMap}
+                contacts={viewContacts}
+                messagesMap={viewMessagesMap}
                 onSendMessage={handleSendMessage}
                 onToggleAgent={handleToggleAgent}
                 onUpdateFunnelStage={handleUpdateFunnelStage}
                 onUpdateLeadScore={handleUpdateLeadScore}
+                sendDisabledReason={
+                  isLive
+                    ? "Envio manual ainda não implementado — as respostas saem pelo robô via Edge Function."
+                    : undefined
+                }
               />
             )}
 
-            {activeTab === "analytics" && <SalesInsights contacts={contacts} usage={usage} />}
+            {activeTab === "analytics" && <SalesInsights contacts={viewContacts} usage={usage} />}
 
             {activeTab === "config" && (
               <BotConfigManager config={botConfig} onSaveConfig={handleSaveConfig} />

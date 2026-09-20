@@ -149,3 +149,309 @@ This document records the architectural and technical decisions made during the 
   - Strengthened cross-selling potential between Fluxi Bots, Fluxi Sites, and Fluxi Automações.
 
 
+
+---
+
+## ADR-011: Reconciliação do 9º dígito brasileiro no envio via Meta Cloud API
+
+- **Status**: Accepted
+- **Context**:
+  - O pipeline de recebimento (HMAC → roteamento multi-tenant → Gemini) funcionava,
+    mas todo envio de resposta falhava com `(#131030) Recipient phone number not in
+    allowed list`, mesmo com o destinatário cadastrado e verificado por SMS na lista
+    de números de teste da Meta. Só existiam linhas `direction = 'inbound'` em
+    `conversations`.
+  - O mesmo payload, com o mesmo token, executado manualmente no Graph API Explorer,
+    funcionava. Isso levou a hipóteses erradas (token inválido, versão da Graph API,
+    app não assinado ao WABA, diferenças do runtime Deno) — todas descartadas.
+  - A causa real apareceu comparando o `to` dos dois requests: a Edge Function enviava
+    `555181186641` (12 dígitos, forma legada **sem** o 9º dígito), enquanto o teste
+    manual bem-sucedido usava `5551981186641` (13 dígitos, **com** o 9).
+  - Para celulares brasileiros a Meta entrega `from` e `contacts[0].wa_id` na forma
+    legada de 12 dígitos, mas a allowed list de números de teste guarda o número
+    exatamente como foi cadastrado no painel (com o 9) e o match é exato. A sandbox
+    rejeita a forma de 12 dígitos antes de qualquer normalização.
+- **Decision**:
+  - `sendWhatsAppMessage` passa o destinatário por `brazilianPhoneVariants()`, que
+    gera as duas formas (com e sem o 9º dígito) para números `+55` de celular, e
+    tenta a forma **com** o 9 primeiro — aceita tanto pela sandbox quanto por números
+    de produção.
+  - Em caso de falha especificamente com o código `131030`, tenta a forma alternativa.
+    Qualquer outro código de erro interrompe imediatamente, sem retry.
+  - Erros de envio logam `to`, `status`, `code` e `fbtrace_id` (nunca o token), para
+    correlação com o suporte da Meta.
+  - O payload passou a incluir `recipient_type: "individual"` e `text.preview_url`,
+    alinhando com o exemplo canônico de `POST /{phone-number-id}/messages`.
+- **Consequences**:
+  - O envio funciona tanto com número de teste (allowed list, match exato) quanto com
+    número de produção, sem depender do formato que a Meta escolher entregar no webhook.
+  - O comentário anterior em `webhook/index.ts` — que afirmava o oposto, que `wa_id`
+    era a forma exigida para envio — foi corrigido: `wa_id` continua sendo a fonte do
+    número, mas quem reconcilia o formato é o `metaSender`.
+  - Fica registrado que `#131030` deve ser lido como "formato do destinatário não bate
+    com o cadastrado", não como problema de token, versão de API ou runtime.
+
+### Adendo: `#130497` é um bloqueio de conta, não de código
+
+Depois que o `#131030` foi corrigido, a API passou a aceitar o envio (HTTP 200 com
+`wamid`), mas as mensagens continuavam não chegando. O motivo só apareceu quando o
+webhook passou a logar os callbacks de status da Meta, que chegam **sem** o campo
+`messages` e antes caíam no early return em silêncio:
+
+```
+status: failed
+code: 130497
+"Business account is restricted from messaging users in this country."
+recipient_id: 555181186641
+```
+
+São dois problemas independentes e é importante não confundi-los:
+
+- `#131030` — formato do destinatário não bate com a allowed list. **Resolvido em código.**
+- `#130497` — a conta business está restrita de enviar para o país do destinatário.
+  **Resolve-se no Meta Business Manager** (Verificação de Negócio, restrições de
+  política, países permitidos da WABA). Nenhuma alteração de código muda esse resultado.
+
+O `recipient_id` do callback (`555181186641`, 12 dígitos) confirma que a Meta normaliza
+sozinha o número que enviamos com o 9º dígito — ou seja, enviar na forma de 13 dígitos
+satisfaz o gate da allowed list sem prejudicar a entrega.
+
+### Causa confirmada do `#130497`: cross-country a partir do número de teste
+
+O número de teste que a Meta provisiona é **americano** (`+1 555 153-4871`,
+Phone Number ID `1322904704240693`, WABA `2589390954808409`). O destinatário do
+piloto é brasileiro. Isso torna toda resposta uma mensagem **cross-country**, e a
+Meta restringe cross-country justamente para Brasil e Indonésia — inclusive após
+completar o scaling path.
+
+O que **não** resolve (verificado antes de gastar esforço):
+
+- Verificação de Negócio / CNPJ (Etapa 3). O bloqueio não é de identidade da empresa.
+- Trocar token, versão da Graph API ou qualquer coisa no runtime.
+
+O que resolve: **Etapa 2 — Configuração da produção**, registrando um número
+brasileiro próprio na WABA. A mensagem passa a ser BR → BR (doméstica) e a
+restrição de cross-country deixa de se aplicar.
+
+Lição para sessões futuras: o número de teste da Meta serve para validar o
+*recebimento* e o formato das chamadas, mas **não** serve para validar entrega a
+destinatários brasileiros. Um `wamid` de sucesso não significa entrega — só o
+callback de status diz a verdade.
+
+---
+
+## ADR-012: RLS de `tenant_users` era recursiva e derrubava todas as leituras
+
+- **Status**: Accepted
+- **Context**:
+  - Ao ligar o dashboard ao Postgres, a primeira query de um usuário autenticado
+    falhava. Simulando um login via `set_config('request.jwt.claims', ...)`, **todas**
+    as tabelas retornavam o mesmo erro:
+    `infinite recursion detected in policy for relation "tenant_users"`.
+  - A policy `tenant_users_can_read_own_membership` consultava `public.tenant_users`
+    de dentro da própria policy de `tenant_users`. O Postgres reaplica a policy na
+    subconsulta e aborta. Como `tenants`, `contacts` e `conversations` também
+    consultam `tenant_users`, o erro se propagava para o schema inteiro.
+  - Efeito prático: a RLS — apresentada no README como o motor de isolamento
+    multi-tenant, "tested in CI" — nunca permitiu uma única leitura autenticada.
+    O dashboard não podia ter sido ligado ao banco; quebraria na primeira query.
+- **Decision**:
+  - A policy passa a ser `using (user_id = (select auth.uid()))`: cada usuário lê o
+    próprio vínculo. Não recorre, e faz as demais policies terminarem normalmente.
+    É também o que o nome da policy sempre prometeu.
+- **Consequences**:
+  - Verificado após a correção, como usuário autenticado: `tenant_users`, `tenants` e
+    `contacts` retornam 1 linha, `conversations` 13 linhas, e `usage` e
+    `phone_number_index` seguem retornando 0 — continuam bloqueadas de propósito
+    para o cliente, acessíveis só via `service_role` nas Edge Functions.
+  - O isolamento segue intacto; o que mudou foi apenas deixar de recorrer.
+  - `functions/tests/rls.test.ts` não pegou isso. Esses testes provavelmente rodam
+    com privilégio que ignora RLS — enquanto não forem revistos, o selo de
+    "RLS tested in CI" do README é falsa sensação de segurança.
+
+---
+
+## ADR-013: Migração do número de teste para número BR de produção
+
+- **Status**: Draft — decisões de escopo confirmadas (19/set/2026); falta o
+  número físico (chip) e a validação end-to-end para fechar.
+- **Context**:
+  - O ADR anterior (seção "Causa confirmada do `#130497`") já havia identificado
+    a causa raiz: o número de teste da Meta é americano (`+1 555 153-4871`), e
+    toda resposta a um destinatário brasileiro é uma mensagem cross-country —
+    restrita pela Meta para Brasil e Indonésia, mesmo após completar o scaling
+    path. Nenhuma mudança de código, token ou versão de API resolve isso.
+  - A decisão de negócio (setembro/2026) foi migrar direto para um número BR
+    real de produção, **sem** esperar a Verificação de Negócio (Business
+    Verification) e sem precisar de CNPJ.
+  - Confirmado (pesquisa de setembro/2026): a Verificação de Negócio é opcional
+    desde outubro/2023 e continua assim — ela é exigida apenas para o selo de
+    conta oficial e para subir de tier de volume, não para enviar mensagens
+    reais. Referência oficial:
+    [developers.facebook.com/docs/whatsapp/overview/business-accounts](https://developers.facebook.com/docs/whatsapp/overview/business-accounts).
+  - Sem verificação, um número novo opera no Tier 1: 250 conversas
+    **iniciadas pela empresa** por período rolante de 24h. Esse limite não se
+    aplica a conversas iniciadas pelo cliente — que é o caso de uso deste bot,
+    100% reativo. Fonte:
+    [developers.facebook.com/docs/whatsapp/messaging-limits](https://developers.facebook.com/docs/whatsapp/messaging-limits).
+  - Modelo de cobrança vigente desde julho/2025: mensagens de resposta dentro
+    da janela de 24h aberta pelo cliente entram na categoria **"service"**,
+    sem custo. Só há cobrança quando o bot inicia uma conversa via template
+    fora da janela de 24h (categorias marketing/utility/authentication,
+    ~R$0,21–0,35/mensagem — vide tabela vigente). Para o volume atual do
+    piloto (dezenas de conversas/mês, todas reativas), o custo esperado é
+    próximo de zero. Fonte:
+    [developers.facebook.com/documentation/business-messaging/whatsapp/pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing).
+  - Bibliotecas não-oficiais (Baileys, whatsapp-web.js, Evolution API) foram
+    deliberadamente descartadas: violam os termos do WhatsApp e sofrem ondas
+    ativas de banimento em 2026. Inaceitável para um SaaS vendido a clientes
+    reais — o risco recairia sobre o cliente final, não sobre nós.
+- **Decision**:
+  - Registrar um número de telefone brasileiro real (linha dedicada, sem conta
+    ativa no app comum do WhatsApp) como número de produção, seguindo o
+    roteiro em `docs/MIGRACAO_NUMERO_PRODUCAO.md`.
+  - Pular a etapa de Confirmar Empresa / Business Verification neste momento.
+  - Reaproveitar a WABA (`2589390954808409`) e o tenant de teste
+    (`Fluxi - Tenant de Teste`) já existentes — sem WABA nem tenant separados
+    (decisão confirmada em 19/set/2026).
+  - Manter o número de teste (`1322904704240693`) ativo para desenvolvimento
+    depois que o número de produção estiver no ar — as duas linhas convivem
+    em `phone_number_index`, sem custo nem risco adicional (decisão
+    confirmada em 19/set/2026).
+  - Novo `phone_number_id`: `<PREENCHER>`.
+  - Data da migração: `<PREENCHER>`.
+  - Nenhuma mudança de código foi necessária — confirmado por revisão linha a
+    linha de `webhook/index.ts`, `_shared/metaSender.ts` e `_shared/types.ts`
+    (ver `docs/MIGRACAO_NUMERO_PRODUCAO.md`, seção 0.1): o roteamento já é
+    100% dinâmico via `phone_number_index`. Só a linha nova nessa tabela e o
+    secret `META_ACCESS_TOKEN` mudaram.
+- **Consequences**:
+  - `<PREENCHER após validação end-to-end: confirmação de que uma mensagem
+    outbound real foi entregue, sem #131030 nem #130497, e do teste de lead
+    "quente" (transição de stage para lead_quente)>`.
+  - Quando o volume crescer o suficiente para exigir tier maior ou o selo de
+    conta oficial, será necessário completar a Verificação de Negócio. Nesse
+    momento, abrir um **MEI** (gratuito, 100% online) é o caminho mais barato
+    — a Meta aceita MEI, Contrato Social, extrato bancário empresarial ou
+    conta de consumo em nome do negócio, não exclusivamente CNPJ completo.
+
+### Lição aprendida: deploy de Edge Functions via MCP do Supabase
+
+Ao fazer deploy de uma função via `mcp__Supabase__deploy_edge_function`, o
+payload precisa incluir **todos** os arquivos do bundle, inclusive os de
+`_shared/`, e as referências de import dentro desses arquivos devem usar
+`./_shared/...` (relativo ao próprio bundle enviado), não `../_shared/...`
+como está no repositório local (onde `_shared/` é irmã de `webhook/`, não
+filha). O deploy que corrigiu o `#131030` e o Gemini já seguiu esse padrão;
+qualquer deploy futuro da função `webhook` precisa repetir isso, ou a função
+sobe sem as dependências e quebra em runtime.
+
+---
+
+## ADR-014: Revisão completa do projeto — segurança, dívida de testes, CI
+
+- **Status**: Accepted
+- **Context**:
+  - A pedido explícito ("reveja todo o projeto novamente e ajuste o que julgar
+    necessário"), foi feita uma varredura de tudo que ainda não tinha sido
+    revisado nesta sessão: `onboard-tenant`, `proactive-recovery`, o diretório
+    `functions/` (paralelo a `supabase/functions/`), os workflows de CI/CD e
+    o `SECURITY.md`. A varredura encontrou problemas reais, não cosméticos.
+- **Achados e correções**:
+  1. **`proactive-recovery` deployada com `verify_jwt: false` e sem nenhuma
+     autenticação própria.** Qualquer pessoa que descobrisse a URL podia
+     disparar envios reais de WhatsApp para contatos reais, sem limite,
+     gastando cota de Meta/Gemini. Corrigido com um segredo compartilhado
+     (`PROACTIVE_RECOVERY_SECRET`, header `x-recovery-secret`), fail-closed —
+     a função responde 500 se o secret não estiver configurado, nunca abre
+     em silêncio. **Pendente: o segredo precisa ser configurado via
+     `supabase secrets set` (não há tool de MCP para isso) — a função fica
+     inoperante, não insegura, até lá.**
+  2. **`proactive-recovery` derrubava o lote inteiro se um único envio
+     falhasse.** Cada contato agora tem seu próprio try/catch.
+  3. **`proactive-recovery` reenviaria o mesmo nudge indefinidamente** para
+     qualquer contato parado, a cada execução, se o cliente nunca respondesse
+     — risco de spam e de violação de política de qualidade de mensageria da
+     Meta. Corrigido: só reengaja se a última mensagem da conversa for nossa
+     E o cliente nunca tiver respondido desde então (checagem por
+     `direction` da última linha de `conversations`).
+  4. **`onboard-tenant` confiava num `userId` arbitrário enviado no corpo da
+     requisição** para decidir quem vincular como admin do tenant novo — sem
+     nenhuma verificação de que o chamador era de fato aquele usuário. Uma
+     chave anon (pública, já exposta no bundle do dashboard) bastava para
+     passar pelo `verify_jwt: true` da plataforma sem provar identidade
+     nenhuma. Corrigido: o `userId` agora vem exclusivamente de
+     `auth.getUser()` sobre o header `Authorization` do próprio chamador.
+  5. **Números de telefone em texto puro nos logs**, nos diagnósticos
+     adicionados durante o diagnóstico do `#131030`/`#130497` — violando a
+     própria política descrita no `SECURITY.md`. Mascarados para os últimos
+     4 dígitos (`maskPhone()` em `metaSender.ts`; `recipient_id` redigido em
+     `webhook/index.ts`).
+  6. **`functions/tests/signature.test.ts` e `stateMachine.test.ts` testavam
+     uma implementação Firebase-era completamente diferente** da que roda em
+     produção (`functions/src/*`, com APIs e formatos de config distintos —
+     função síncrona vs. assíncrona, `BotConfig` aninhado vs. `BotConfigData`
+     plano, motor de state-graph completo vs. transição simples). Passavam
+     verde no CI sem testar uma linha de código real. Reescritos para
+     importar e testar `supabase/functions/_shared/*` diretamente; os 21
+     testes passam contra a implementação real.
+  7. **`functions/tests/rls.test.ts` só testava o lado "negar" da RLS**
+     (cliente anônimo não vê nada) e nunca autenticou como usuário real — o
+     ponto cego exato que deixou passar a recursão infinita do ADR-012.
+     Adicionada uma suíte que fabrica dois tenants e dois usuários reais via
+     Admin API e prova as duas metades que faltavam: um usuário autenticado
+     consegue ler os próprios dados e não consegue ler nem escrever nos de
+     outro tenant. Verificado manualmente via SQL direto contra o banco real
+     (7/7 asserções corretas) antes de confiar na reescrita — a suíte em si
+     não pôde ser executada de ponta a ponta neste ambiente porque o proxy de
+     rede do sandbox bloqueia `nsotmdvalhcqrigepkcu.supabase.co` para
+     bibliotecas HTTP comuns (mesma restrição que impediu testar a migração
+     do Gemini e o `curl` no `proactive-recovery`). **Pendente: a suíte
+     autenticada exige `SUPABASE_SERVICE_ROLE_KEY` como secret do GitHub
+     Actions — sem isso, ela pula os próprios testes de propósito (nunca
+     falha por engano) e avisa no output.**
+  8. **`functions/src/*` era uma implementação Firebase-era inteira,
+     abandonada e nunca removida** (`firebase-admin`, `firebase-functions`,
+     `@google/genai`, `cors`, `zod`, `@firebase/rules-unit-testing` como
+     dependências), responsável por boa parte das 23 vulnerabilidades
+     (1 crítica) que `npm audit` apontava. Removida por completo; `npm audit
+     --omit=dev --audit-level=high` agora reporta 0.
+  9. **CI estava vermelho desde pelo menos o commit `4ce6fa4`** — toda
+     execução em `main` falhava porque `@supabase/supabase-js@2.116+` exige
+     Node 22+ (o módulo `realtime-js` precisa de um `WebSocket` nativo,
+     ausente no Node 20) e `ci.yml`/`deploy.yml` fixavam Node 20. Corrigido
+     bumpando os dois workflows para Node 22. Isso não foi causado por nada
+     desta sessão — é uma falha pré-existente da base, confirmada olhando o
+     histórico de execuções do CI em `main` antes de mexer em qualquer coisa.
+  10. **`SECURITY.md` fazia afirmações que não correspondiam ao código**:
+      dizia que toda Edge Function autentica via `auth.uid()` (falso para
+      `onboard-tenant`, que confiava em input do cliente, e para
+      `proactive-recovery`, que não tinha autenticação nenhuma); dizia que
+      telefones nunca aparecem em log (falso, ver item 5); dizia que o CI
+      roda `npm audit` bloqueando PRs (o script existia, nenhum workflow o
+      chamava); descrevia limites de "Cloud Functions 2nd Gen", um resquício
+      do design original em Firebase, abandonado. Corrigido para refletir a
+      arquitetura e o comportamento reais, incluindo os dois incidentes
+      registrados (a recursão de RLS do ADR-012, o vazamento de telefone
+      deste ADR) como parte do próprio histórico de segurança do documento,
+      em vez de apagados da memória institucional.
+  11. `.github/workflows/deploy.yml` fazia deploy de `proactive-recovery`
+      **sem** `--no-verify-jwt` — o próximo deploy automático (contingente a
+      `SUPABASE_ACCESS_TOKEN` existir como secret) reverteria silenciosamente
+      a correção do item 1, exigindo um JWT de usuário Supabase que um
+      cron/scheduler nunca teria. Corrigido para incluir a flag.
+- **Consequences**:
+  - Duas configurações manuais ficam pendentes, fora do alcance de qualquer
+    ferramenta disponível nesta sessão: o secret `PROACTIVE_RECOVERY_SECRET`
+    no Supabase (`supabase secrets set`) e `SUPABASE_SERVICE_ROLE_KEY` como
+    secret do GitHub Actions (para a suíte de RLS autenticada rodar em vez de
+    pular). Nenhuma delas bloqueia o restante do sistema — ambas falham
+    fechado (função inoperante / teste pulado), nunca abertas.
+  - `functions/` deixou de ter runtime próprio — hoje é só a suíte de testes
+    que exercita `supabase/functions/_shared/*` e o Postgres real. Isso é
+    intencional: qualquer lógica de negócio nova deve nascer direto em
+    `supabase/functions/`, nunca duplicada aqui.
+  - O `SECURITY.md` agora documenta os dois incidentes reais encontrados
+    nesta sessão (recursão de RLS, telefones em log) como parte do histórico
+    do documento — decisão deliberada de manter a memória institucional em
+    vez de reescrever a história como se o sistema sempre tivesse sido assim.

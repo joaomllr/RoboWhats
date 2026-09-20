@@ -1,6 +1,23 @@
 import { AIReasoningResult, LeadScore } from "./types.ts";
 import { BotConfigData, defaultBotConfig } from "./stateMachine.ts";
 
+const GEMINI_MODEL = "gemini-3.6-flash";
+
+/**
+ * O modelo responde 503 ("experiencing high demand") de forma intermitente e o
+ * webhook não tem como repetir o turno depois — o cliente já recebeu a resposta
+ * enlatada. Uma segunda tentativa curta resolve o caso comum sem segurar o
+ * webhook: a Meta espera resposta rápida, então não insistimos além disso.
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const response = await fetch(url, init);
+  if (response.status !== 503 && response.status !== 429) return response;
+
+  console.warn(`Gemini indisponível [${response.status}], tentando novamente em 600ms.`);
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  return fetch(url, init);
+}
+
 export interface GenerateTurnInput {
   incomingMessage: string;
   contactName?: string | null;
@@ -72,34 +89,79 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
     // ACCESS_TOKEN_TYPE_UNSUPPORTED para esse formato. Enviamos sempre via header, que
     // funciona para os dois formatos de chave.
     //
-    // O modelo "gemini-2.5-flash" foi descontinuado para novas contas em 2026
-    // (API retorna 404 "no longer available to new users"). Usamos o sucessor
-    // indicado pela própria API: "gemini-3.6-flash".
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: promptText }] }],
-        generationConfig: {
-          maxOutputTokens: 500,
-          temperature: 0.3,
-          responseMimeType: "application/json",
+    // Usamos a Interactions API (e não models/*:generateContent, hoje legado) porque
+    // nos modelos Gemini 3 os tokens de raciocínio consomem o orçamento de saída: no
+    // nível padrão o raciocínio ocupa quase tudo e o JSON volta truncado
+    // ("Unterminated string in JSON"). Aumentar o teto não resolve de forma
+    // confiável — o raciocínio tende a se expandir junto. Quem controla isso é
+    // generation_config.thinking_level, que só existe aqui. O response_format com
+    // schema ainda garante que a resposta venha no formato esperado. Confirmado
+    // contra a documentação oficial (ai.google.dev) em 20/set/2026: é o endpoint
+    // recomendado pelo Google para desenvolvimento novo (generateContent continua
+    // suportado, mas Interactions é o caminho novo), e thinking_level é o campo
+    // atual — thinking_budget está descontinuado nos modelos Gemini 3.x.
+    const res = await fetchWithRetry(
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-    });
+        body: JSON.stringify({
+          model: GEMINI_MODEL,
+          input: promptText,
+          response_format: {
+            type: "text",
+            mime_type: "application/json",
+            schema: {
+              type: "object",
+              properties: {
+                replyText: { type: "string", description: "Resposta concisa ao cliente" },
+                leadScore: { type: "string", enum: ["frio", "morno", "quente"] },
+                scoreReason: { type: "string", description: "Justificativa breve do score" },
+              },
+              required: ["replyText", "leadScore", "scoreReason"],
+            },
+          },
+          generation_config: {
+            temperature: 0.3,
+            thinking_level: "minimal",
+          },
+        }),
+      }
+    );
 
     if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.warn(`Gemini API returned ${res.status}, falling back to mock. Body: ${errBody.slice(0, 300)}`);
       return generateMockTurn(incomingMessage, contactName, currentStage);
     }
 
     const data = await res.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(candidateText);
+
+    // `interaction.output_text` só existe como propriedade de conveniência dos
+    // SDKs oficiais (Python/JS `client.interactions.create(...)`) — nunca foi
+    // um campo do JSON cru. Quem chama a REST API direto via fetch(), como
+    // aqui, recebe `steps`: um array de passos (`thought`, `model_output`,
+    // etc.), e o texto fica em steps[].content[].text do passo do tipo
+    // "model_output". Formato confirmado na documentação oficial e vigente
+    // desde a migração com breaking change de maio/2026 (schema anterior
+    // removido em 8/jun/2026). Achar isso exigiu comparar o request real
+    // contra o guia de breaking changes — o JSON.parse de output_text nunca
+    // teria funcionado, mesmo antes de maio/2026.
+    const modelOutputStep = data.steps?.find((s: any) => s?.type === "model_output");
+    const outputText = modelOutputStep?.content?.find((c: any) => c?.type === "text")?.text;
+
+    if (typeof outputText !== "string") {
+      console.warn(
+        `Gemini: resposta sem texto em steps[].content[].text. Chaves recebidas: ${JSON.stringify(Object.keys(data))}`
+      );
+      return generateMockTurn(incomingMessage, contactName, currentStage);
+    }
+
+    const parsed = JSON.parse(outputText);
+    const usage = data.usage ?? data.interaction?.usage;
 
     const validScores: LeadScore[] = ["frio", "morno", "quente"];
     const leadScore: LeadScore = validScores.includes(parsed.leadScore) ? parsed.leadScore : "morno";
@@ -111,11 +173,12 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
       nextState: leadScore === "quente" ? "lead_quente" : currentStage,
       isEscalationRequested: false,
       tokenUsage: {
-        promptTokens: data.usageMetadata?.promptTokenCount || 220,
-        candidateTokens: data.usageMetadata?.candidatesTokenCount || 75,
+        promptTokens: usage?.total_input_tokens ?? usage?.input_tokens ?? usage?.prompt_tokens ?? 220,
+        candidateTokens: usage?.total_output_tokens ?? usage?.output_tokens ?? usage?.completion_tokens ?? 75,
       },
     };
-  } catch {
+  } catch (err) {
+    console.warn(`Gemini call failed, falling back to mock. Error: ${err instanceof Error ? err.message : String(err)}`);
     return generateMockTurn(incomingMessage, contactName, currentStage);
   }
 }

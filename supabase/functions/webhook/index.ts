@@ -11,6 +11,67 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 // Initialize privileged admin client for webhook event processing
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+/**
+ * Diagnóstico read-only sob demanda (nenhuma escrita, nenhum envio). Confirma
+ * diretamente na Graph API se a Meta ainda reconhece este app como inscrito
+ * na WABA e qual o status atual do número — sem depender de a Meta chamar
+ * este webhook primeiro, que é exatamente o que está em dúvida. Nunca loga
+ * nem retorna o access token; wabaId/phoneNumberId são IDs internos da Meta
+ * (não PII), já expostos em phone_number_index.
+ */
+async function runDiagnostics(): Promise<Response> {
+  const accessToken = Deno.env.get("META_ACCESS_TOKEN");
+  if (!accessToken) {
+    return new Response(JSON.stringify({ error: "META_ACCESS_TOKEN não configurado" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { data: indexRecord, error: indexError } = await supabase
+    .from("phone_number_index")
+    .select("phone_number_id, waba_id")
+    .limit(1)
+    .maybeSingle();
+
+  if (indexError || !indexRecord) {
+    return new Response(JSON.stringify({ error: "phone_number_index vazio ou inacessível" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { phone_number_id: phoneNumberId, waba_id: wabaId } = indexRecord;
+  const graphBase = "https://graph.facebook.com/v26.0";
+  const authHeader = { Authorization: `Bearer ${accessToken}` };
+
+  async function probe(url: string) {
+    try {
+      const res = await fetch(url, { headers: authHeader });
+      const bodyText = await res.text();
+      return { status: res.status, ok: res.ok, body: bodyText.slice(0, 500) };
+    } catch (err) {
+      return { status: 0, ok: false, body: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  const [subscribedApps, phoneNumberStatus] = await Promise.all([
+    probe(`${graphBase}/${wabaId}/subscribed_apps`),
+    probe(
+      `${graphBase}/${phoneNumberId}?fields=verified_name,code_verification_status,quality_rating,platform_type,throughput,status`
+    ),
+  ]);
+
+  return new Response(
+    JSON.stringify(
+      { checkedAt: new Date().toISOString(), wabaId, phoneNumberId, subscribedApps, phoneNumberStatus },
+      null,
+      2
+    ),
+    { status: 200, headers: { "Content-Type": "application/json" } }
+  );
+}
+
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
 
@@ -26,6 +87,12 @@ Deno.serve(async (req: Request) => {
     if (!expectedToken) {
       console.error("META_WEBHOOK_VERIFY_TOKEN is not configured.");
       return new Response("Server misconfigured", { status: 500 });
+    }
+
+    // Reaproveita o verify_token como gate (não cria segredo novo): quem não
+    // souber o valor recebe a mesma resposta 403 de um handshake normal.
+    if (url.searchParams.get("diag") === "status" && token === expectedToken) {
+      return await runDiagnostics();
     }
 
     if (mode === "subscribe" && token === expectedToken) {
@@ -68,6 +135,20 @@ Deno.serve(async (req: Request) => {
     const messages = change?.messages;
     const contacts = change?.contacts;
 
+    // A Meta reporta a entrega de cada mensagem enviada (sent / delivered /
+    // read / failed) num callback separado, sem o campo "messages". Um envio
+    // aceito pela API ainda pode falhar na entrega, e o motivo só aparece aqui.
+    // recipient_id (telefone) é mascarado antes de logar — SECURITY.md proíbe
+    // PII em texto puro nos logs.
+    const statuses = change?.statuses;
+    if (statuses?.length) {
+      const redacted = statuses.map((s) => ({
+        ...s,
+        recipient_id: s.recipient_id ? `***${s.recipient_id.slice(-4)}` : s.recipient_id,
+      }));
+      console.log(`Meta status callback: ${JSON.stringify(redacted)}`);
+    }
+
     if (!metadata?.phone_number_id || !messages || messages.length === 0) {
       return new Response("EVENT_RECEIVED", { status: 200 });
     }
@@ -78,15 +159,11 @@ Deno.serve(async (req: Request) => {
     const messageText = incomingMessage.text?.body || "";
     const senderName = contacts?.[0]?.profile?.name || "Cliente";
 
-    // A Meta pode enviar o campo "from" da mensagem recebida com o 9º dígito
-    // (padrão brasileiro de celular, ex: 5551981186641), mas exige o número
-    // no formato normalizado (sem o 9, ex: 555181186641) para ENVIAR mensagens
-    // de volta — esse formato normalizado vem em contacts[0].wa_id. Usar "from"
-    // diretamente no envio causa erro (#131030) "Recipient phone number not in
-    // allowed list" mesmo com o destinatário corretamente cadastrado.
+    // Para celulares brasileiros a Meta entrega "from" e "wa_id" no formato
+    // legado de 12 dígitos (sem o 9º dígito). A allowed list de números de
+    // teste guarda o número com o 9, e o match é exato — quem reconcilia as
+    // duas formas é brazilianPhoneVariants() dentro de sendWhatsAppMessage.
     const sendToPhone = contacts?.[0]?.wa_id || senderPhone;
-
-    console.log(`Phone diagnostics — from: ${senderPhone}, wa_id: ${contacts?.[0]?.wa_id}, sendToPhone: ${sendToPhone}`);
 
     // -------------------------------------------------------------
     // 3. Multi-Tenant Routing via phone_number_index

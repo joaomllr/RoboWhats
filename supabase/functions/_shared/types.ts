@@ -85,6 +85,18 @@ export interface MetaWebhookPayload {
           };
           type: string;
         }>;
+        statuses?: Array<{
+          id: string;
+          status: string;
+          timestamp: string;
+          recipient_id: string;
+          errors?: Array<{
+            code: number;
+            title: string;
+            message?: string;
+            error_data?: { details?: string };
+          }>;
+        }>;
       };
       field: string;
     }>;

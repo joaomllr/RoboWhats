@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -163,5 +163,205 @@ describe("Supabase Postgres Multi-Tenant RLS — Deny-by-Default & Isolation", (
       // Must fail loudly and return an error (401), not pass silently
       expect(error).toBeDefined();
     });
+  });
+
+  /**
+   * As suítes acima só provam a metade "negar" da RLS: um cliente anônimo não
+   * vê nada. Nenhuma delas jamais autenticou como um usuário real — e foi
+   * exatamente esse ponto cego que deixou passar uma recursão infinita na
+   * policy de tenant_users (corrigida na migração
+   * 20260920000000_fix_tenant_users_rls_recursion.sql): a policy só entra em
+   * ação `to authenticated`, então um cliente anônimo nunca a exercita, e
+   * "0 linhas retornadas" parecia sucesso tanto para "RLS bloqueou" quanto
+   * para "RLS quebrou com erro 500 e a chamada nunca chegou a rodar".
+   *
+   * Esta suíte fabrica dois tenants e dois usuários reais (via Admin API,
+   * exige SUPABASE_SERVICE_ROLE_KEY) e prova as duas metades que faltavam:
+   * um usuário autenticado CONSEGUE ler os próprios dados, e NÃO CONSEGUE ler
+   * nem escrever nos dados de outro tenant.
+   */
+  describe("5. Authenticated Access — Own-Tenant Allow & Cross-Tenant Deny", () => {
+    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const shouldRun = Boolean(SUPABASE_SERVICE_ROLE_KEY);
+
+    let adminClient: SupabaseClient;
+    let tenantAId: string;
+    let tenantBId: string;
+    let userAId: string;
+    let userBId: string;
+    let userAEmail: string;
+    let userAPassword: string;
+    let contactAId: string;
+    let userAClient: SupabaseClient;
+
+    beforeAll(async () => {
+      if (!shouldRun) return;
+
+      adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY!, {
+        auth: { persistSession: false },
+      });
+
+      const suffix = Date.now();
+      userAEmail = `rls-test-a-${suffix}@example.com`;
+      userAPassword = `Test-${suffix}-!Aa`;
+      const userBEmail = `rls-test-b-${suffix}@example.com`;
+
+      const { data: tenantA, error: tenantAError } = await adminClient
+        .from("tenants")
+        .insert({ name: `RLS Test Tenant A ${suffix}`, plan_tier: "trial", status: "active" })
+        .select()
+        .single();
+      if (tenantAError) throw new Error(`Fixture setup failed (tenant A): ${tenantAError.message}`);
+      tenantAId = tenantA.id;
+
+      const { data: tenantB, error: tenantBError } = await adminClient
+        .from("tenants")
+        .insert({ name: `RLS Test Tenant B ${suffix}`, plan_tier: "trial", status: "active" })
+        .select()
+        .single();
+      if (tenantBError) throw new Error(`Fixture setup failed (tenant B): ${tenantBError.message}`);
+      tenantBId = tenantB.id;
+
+      const { data: userA, error: userAError } = await adminClient.auth.admin.createUser({
+        email: userAEmail,
+        password: userAPassword,
+        email_confirm: true,
+      });
+      if (userAError || !userA?.user) {
+        throw new Error(`Fixture setup failed (user A): ${userAError?.message}`);
+      }
+      userAId = userA.user.id;
+
+      const { data: userB, error: userBError } = await adminClient.auth.admin.createUser({
+        email: userBEmail,
+        password: `Test-${suffix}-!Bb`,
+        email_confirm: true,
+      });
+      if (userBError || !userB?.user) {
+        throw new Error(`Fixture setup failed (user B): ${userBError?.message}`);
+      }
+      userBId = userB.user.id;
+
+      await adminClient.from("tenant_users").insert([
+        { tenant_id: tenantAId, user_id: userAId, role: "admin" },
+        { tenant_id: tenantBId, user_id: userBId, role: "admin" },
+      ]);
+
+      const { data: contactA, error: contactAError } = await adminClient
+        .from("contacts")
+        .insert({ tenant_id: tenantAId, wa_phone: "+5511900000001", name: "Contato Tenant A" })
+        .select()
+        .single();
+      if (contactAError) throw new Error(`Fixture setup failed (contact A): ${contactAError.message}`);
+      contactAId = contactA.id;
+
+      await adminClient.from("conversations").insert({
+        tenant_id: tenantAId,
+        contact_id: contactAId,
+        direction: "inbound",
+        message_body: "Mensagem de teste do tenant A",
+      });
+
+      const signInClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false },
+      });
+      const { data: session, error: signInError } = await signInClient.auth.signInWithPassword({
+        email: userAEmail,
+        password: userAPassword,
+      });
+      if (signInError || !session?.session) {
+        throw new Error(`Fixture setup failed (sign-in as user A): ${signInError?.message}`);
+      }
+
+      userAClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${session.session.access_token}` } },
+      });
+    });
+
+    afterAll(async () => {
+      if (!shouldRun) return;
+      // tenant_users, contacts e conversations têm ON DELETE CASCADE em
+      // tenant_id, então apagar os dois tenants limpa tudo que depende deles.
+      await adminClient.from("tenants").delete().in("id", [tenantAId, tenantBId]);
+      if (userAId) await adminClient.auth.admin.deleteUser(userAId);
+      if (userBId) await adminClient.auth.admin.deleteUser(userBId);
+    });
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado consegue ler o próprio tenant em public.tenants",
+      async () => {
+        const { data, error } = await userAClient.from("tenants").select("*").eq("id", tenantAId);
+        expect(error).toBeNull();
+        expect(data).toHaveLength(1);
+        expect(data?.[0].id).toBe(tenantAId);
+      }
+    );
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado consegue ler o próprio vínculo em tenant_users (sem recursão)",
+      async () => {
+        const { data, error } = await userAClient.from("tenant_users").select("*");
+        expect(error).toBeNull();
+        expect(data?.some((row) => row.tenant_id === tenantAId && row.user_id === userAId)).toBe(true);
+      }
+    );
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado consegue ler contatos e conversas do próprio tenant",
+      async () => {
+        const contactsResult = await userAClient.from("contacts").select("*").eq("tenant_id", tenantAId);
+        expect(contactsResult.error).toBeNull();
+        expect(contactsResult.data).toHaveLength(1);
+
+        const conversationsResult = await userAClient
+          .from("conversations")
+          .select("*")
+          .eq("contact_id", contactAId);
+        expect(conversationsResult.error).toBeNull();
+        expect(conversationsResult.data).toHaveLength(1);
+      }
+    );
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado NÃO vê o tenant de outro usuário (isolamento cross-tenant)",
+      async () => {
+        const { data, error } = await userAClient.from("tenants").select("*").eq("id", tenantBId);
+        expect(error).toBeNull();
+        expect(data).toHaveLength(0);
+      }
+    );
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado NÃO consegue inserir contato em outro tenant",
+      async () => {
+        const { error } = await userAClient
+          .from("contacts")
+          .insert({ tenant_id: tenantBId, wa_phone: "+5511900000099", name: "Invasor" });
+        expect(error).toBeDefined();
+        expect(error?.code).toBe("42501");
+      }
+    );
+
+    it.skipIf(!shouldRun)(
+      "usuário autenticado NÃO consegue ler conversas de outro tenant",
+      async () => {
+        const { data, error } = await userAClient
+          .from("conversations")
+          .select("*")
+          .eq("tenant_id", tenantBId);
+        expect(error).toBeNull();
+        expect(data).toHaveLength(0);
+      }
+    );
+
+    if (!shouldRun) {
+      it("SUPABASE_SERVICE_ROLE_KEY não configurada — suíte de acesso autenticado pulada", () => {
+        console.warn(
+          "Defina SUPABASE_SERVICE_ROLE_KEY para rodar os testes de isolamento cross-tenant autenticado."
+        );
+        expect(true).toBe(true);
+      });
+    }
   });
 });
