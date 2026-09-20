@@ -455,3 +455,124 @@ sobe sem as dependências e quebra em runtime.
     nesta sessão (recursão de RLS, telefones em log) como parte do histórico
     do documento — decisão deliberada de manter a memória institucional em
     vez de reescrever a história como se o sistema sempre tivesse sido assim.
+
+---
+
+## ADR-015: Webhook silencioso desde 19/set — token de teste vencido + número banido
+
+- **Status**: Accepted
+- **Context**:
+  - O usuário reportou que o webhook parou de receber qualquer `POST` da Meta
+    às 23:26:34 UTC de 19/set, mesmo com mensagens de teste reais enviadas
+    depois. `function_edge_logs` confirmou: nenhum request de nenhum tipo
+    (nem handshake `GET`, nem `POST`) chegou depois desse horário — nem
+    mesmo às versões da function deployadas depois (v15–v18), o que já
+    descartava qualquer regressão de código deste PR como causa.
+  - Este ambiente sandboxed não alcança `graph.facebook.com` nem a própria
+    URL do webhook no Supabase (proxy bloqueia ambos, confirmado por `curl`
+    retornando `CONNECT tunnel failed, 403`). Não havia como testar
+    diretamente a partir daqui.
+  - Solução: um endpoint de diagnóstico read-only temporário foi adicionado a
+    `webhook/index.ts` (`GET ?diag=status`, gate reaproveitando o
+    `META_WEBHOOK_VERIFY_TOKEN` existente — nenhum secret novo criado). Ele
+    chama `/{waba_id}/subscribed_apps` e `/{phone_number_id}` na Graph API
+    usando o `META_ACCESS_TOKEN` já configurado, e devolve status HTTP +
+    corpo truncado de cada um. Nunca loga nem retorna o token. Deployado como
+    v19 e testado pelo usuário (fora deste sandbox, via navegador).
+  - Primeira rodada do diagnóstico revelou a causa raiz nº 1: o
+    `META_ACCESS_TOKEN` configurado era o token temporário de 24h do painel
+    "API Setup", que havia expirado (`"Session has expired on Saturday,
+    19-Sep-26 17:00:00 PDT"`) — batendo quase exatamente com o horário em que
+    o webhook silenciou.
+  - O usuário então criou um **System User** no Meta Business Suite, atribuiu
+    a WABA de teste e o app a ele, e gerou um token de acesso permanente
+    (sem expiração de 24h) com `whatsapp_business_messaging` e
+    `whatsapp_business_management`. Configurado via `supabase secrets set`
+    rodado pelo próprio usuário no terminal dele — o valor nunca passou por
+    esta conversa.
+  - Segunda rodada do diagnóstico, já com o token novo: `subscribedApps`
+    voltou `200`/`ok: true` (app segue inscrito na WABA), mas
+    `phoneNumberStatus` voltou `200`/`ok: true` com o campo
+    `"status":"BANNED"` — o número de teste (`1322904704240693`) está banido
+    pela Meta. Plausivelmente consequência das rejeições repetidas por
+    `#131030`/`#130497` documentadas no ADR-011/PR #1, que podem ter
+    acionado um bloqueio automático de abuso em número de teste.
+  - **Dois incidentes de exposição de token durante o processo**: em ambos os
+    casos o usuário colou um valor de token em texto puro nesta conversa.
+    Nenhum dos dois foi usado por esta sessão. O primeiro era o próprio
+    `META_ACCESS_TOKEN` a ser configurado — o usuário confirmou tê-lo
+    revogado e gerado outro antes de prosseguir. O segundo era um token
+    *diferente*, do gerador de teste de 24h da tela "API Setup" (não o token
+    permanente do System User já validado) — o usuário confirmou não haver
+    relação com o secret configurado no Supabase, mas foi orientado a
+    revogá-lo (botão "Gerar novo token") por precaução.
+- **Decision**:
+  - Token de 24h não é uma configuração viável para produção — é
+    exclusivamente o gerador de teste do painel "API Setup". A migração para
+    o número BR de produção (ADR-013) já previa gerar um token no contexto
+    do número novo; fica reforçado que esse token deve ser um token de
+    **System User de longa duração**, nunca o de 24h.
+  - Número de teste banido não é recuperável via código nem via troca de
+    token. Decisão do usuário: não tentar apelar o banimento — seguir direto
+    para a ativação do número BR de produção já documentada em
+    `docs/MIGRACAO_NUMERO_PRODUCAO.md`, que resolve o banimento e a restrição
+    cross-country (`#130497`) de uma vez.
+  - O endpoint `?diag=status` permanece em produção por ora — só será
+    removido (commit separado) depois que o fluxo real de ponta a ponta for
+    validado com o número novo, sem depender dele nem do número banido.
+- **Consequences**:
+  - Migração para o número BR de produção (ADR-013) deixou de ser só uma
+    melhoria de roteamento — é agora o único caminho para o sistema voltar a
+    funcionar de ponta a ponta. Passo a passo aguardando o usuário resolver a
+    checklist de compra/ativação do chip (`docs/MIGRACAO_NUMERO_PRODUCAO.md`,
+    seção 0.3).
+  - Nenhuma mudança de código de negócio foi necessária para diagnosticar ou
+    corrigir a causa raiz — reforça a conclusão do ADR-013 (seção 0.1) de que
+    o sistema já era agnóstico ao `phone_number_id`/token específico.
+
+---
+
+## ADR-016: Publicação do dashboard via Cloudflare Workers (Static Assets), não Pages
+
+- **Status**: Accepted
+- **Context**:
+  - O dashboard (`apps/dashboard`) é uma SPA estática (Vite + React), sem
+    necessidade de runtime de servidor. Faltava decidir como publicá-la.
+  - A conta Cloudflare do usuário já hospeda outros projetos (`rm-express`,
+    `crm-prospeccao-frontend`) como **Workers com Static Assets**, não como
+    Cloudflare Pages — confirmado via `workers_list`. A documentação oficial
+    da Cloudflare (consultada nesta sessão) também trata Pages como o
+    caminho legado, com Workers Static Assets como o recomendado para sites
+    novos.
+  - As ferramentas MCP disponíveis para Cloudflare neste ambiente cobrem
+    D1/KV/R2/Hyperdrive/leitura de Workers, mas não incluem deploy/criação de
+    Worker — só é possível publicar via `wrangler` (CLI) autenticado, ou via
+    integração Git ("Workers Builds"). O `wrangler` deste sandbox não está
+    autenticado (`wrangler whoami` confirma), e não há como autenticá-lo sem
+    ou pedir para o usuário rodar `wrangler login` localmente, ou colar um
+    API token nesta conversa — a segunda opção repete exatamente o problema
+    de exposição de credencial do ADR-015.
+- **Decision**:
+  - Publicar via **Workers Builds** (integração Git nativa da Cloudflare):
+    o usuário conecta o repositório pela própria interface do painel
+    Cloudflare, sem nenhum token passar por este ambiente ou por esta
+    conversa. Documentado passo a passo no README (seção "Deploying the
+    Dashboard").
+  - Adicionado `apps/dashboard/wrangler.jsonc` configurando
+    `assets.directory: "./dist"` e
+    `assets.not_found_handling: "single-page-application"` (necessário para
+    uma SPA com rotas client-side não cair em 404 num reload). Validado
+    localmente com `npm run build` + `wrangler dev`: raiz e uma rota interna
+    arbitrária retornam `200`.
+  - As duas variáveis de build (`VITE_SUPABASE_URL`,
+    `VITE_SUPABASE_PUBLISHABLE_KEY`) são públicas — os mesmos valores já
+    hardcoded em `ci.yml`/`deploy.yml` — e vão diretas na configuração de
+    build do Workers Builds, sem risco de exposição.
+- **Consequences**:
+  - Falta só a ação manual do usuário no painel Cloudflare (import do
+    repositório, 4 campos de configuração) para o deploy automático em
+    `main` passar a valer. Nenhuma ferramenta disponível nesta sessão pode
+    fazer essa parte por mim.
+  - Uma vez conectado, todo push em `main` que toque `apps/dashboard/**`
+    republica automaticamente — mesmo padrão já em uso nos outros projetos
+    Cloudflare do usuário.

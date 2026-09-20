@@ -102,6 +102,26 @@ npm run test:rules
 npm run build
 ```
 
+### Deploying the Dashboard (Cloudflare Workers, Static Assets)
+
+The dashboard is a static SPA — no server runtime needed. It deploys via
+[Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
+(Cloudflare's current recommended path for static sites, superseding Pages),
+configured in `apps/dashboard/wrangler.jsonc`. The build is git-integrated
+(Workers Builds) rather than pushed from a local machine or CI secret, so no
+Cloudflare API token needs to live anywhere:
+
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a Git
+   repository** → select `joaomllr/RoboWhats`.
+2. **Root directory**: `apps/dashboard`.
+3. **Build command**: `npm run build`. **Deploy command**: `npx wrangler deploy`
+   (Workers Builds runs this automatically after the build).
+4. **Build variables** (public, not secrets — same values as `deploy.yml`):
+   - `VITE_SUPABASE_URL=https://nsotmdvalhcqrigepkcu.supabase.co`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_pVHNpa7nCtSmfiEloxSC1g_IWw8iqXd`
+5. Every push to `main` that touches `apps/dashboard/**` redeploys
+   automatically once step 1–4 are set up once.
+
 ---
 
 ## 5. Security & Verification
