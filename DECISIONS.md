@@ -268,3 +268,74 @@ callback de status diz a verdade.
   - `functions/tests/rls.test.ts` não pegou isso. Esses testes provavelmente rodam
     com privilégio que ignora RLS — enquanto não forem revistos, o selo de
     "RLS tested in CI" do README é falsa sensação de segurança.
+
+---
+
+## ADR-013: Migração do número de teste para número BR de produção
+
+- **Status**: Draft — aguardando o número físico (chip) para ser finalizado.
+- **Context**:
+  - O ADR anterior (seção "Causa confirmada do `#130497`") já havia identificado
+    a causa raiz: o número de teste da Meta é americano (`+1 555 153-4871`), e
+    toda resposta a um destinatário brasileiro é uma mensagem cross-country —
+    restrita pela Meta para Brasil e Indonésia, mesmo após completar o scaling
+    path. Nenhuma mudança de código, token ou versão de API resolve isso.
+  - A decisão de negócio (setembro/2026) foi migrar direto para um número BR
+    real de produção, **sem** esperar a Verificação de Negócio (Business
+    Verification) e sem precisar de CNPJ.
+  - Confirmado (pesquisa de setembro/2026): a Verificação de Negócio é opcional
+    desde outubro/2023 e continua assim — ela é exigida apenas para o selo de
+    conta oficial e para subir de tier de volume, não para enviar mensagens
+    reais. Referência oficial:
+    [developers.facebook.com/docs/whatsapp/overview/business-accounts](https://developers.facebook.com/docs/whatsapp/overview/business-accounts).
+  - Sem verificação, um número novo opera no Tier 1: 250 conversas
+    **iniciadas pela empresa** por período rolante de 24h. Esse limite não se
+    aplica a conversas iniciadas pelo cliente — que é o caso de uso deste bot,
+    100% reativo. Fonte:
+    [developers.facebook.com/docs/whatsapp/messaging-limits](https://developers.facebook.com/docs/whatsapp/messaging-limits).
+  - Modelo de cobrança vigente desde julho/2025: mensagens de resposta dentro
+    da janela de 24h aberta pelo cliente entram na categoria **"service"**,
+    sem custo. Só há cobrança quando o bot inicia uma conversa via template
+    fora da janela de 24h (categorias marketing/utility/authentication,
+    ~R$0,21–0,35/mensagem — vide tabela vigente). Para o volume atual do
+    piloto (dezenas de conversas/mês, todas reativas), o custo esperado é
+    próximo de zero. Fonte:
+    [developers.facebook.com/documentation/business-messaging/whatsapp/pricing](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing).
+  - Bibliotecas não-oficiais (Baileys, whatsapp-web.js, Evolution API) foram
+    deliberadamente descartadas: violam os termos do WhatsApp e sofrem ondas
+    ativas de banimento em 2026. Inaceitável para um SaaS vendido a clientes
+    reais — o risco recairia sobre o cliente final, não sobre nós.
+- **Decision**:
+  - Registrar um número de telefone brasileiro real (linha dedicada, sem conta
+    ativa no app comum do WhatsApp) como número de produção, seguindo o
+    roteiro em `docs/MIGRACAO_NUMERO_PRODUCAO.md`.
+  - Pular a etapa de Confirmar Empresa / Business Verification neste momento.
+  - Novo `phone_number_id`: `<PREENCHER>` (WABA: `<PREENCHER — 2589390954808409 se reaproveitada>`).
+  - Data da migração: `<PREENCHER>`.
+  - Nenhuma mudança de código foi necessária — confirmado por revisão linha a
+    linha de `webhook/index.ts`, `_shared/metaSender.ts` e `_shared/types.ts`
+    (ver `docs/MIGRACAO_NUMERO_PRODUCAO.md`, seção 0.1): o roteamento já é
+    100% dinâmico via `phone_number_index`. Só a linha nova nessa tabela e o
+    secret `META_ACCESS_TOKEN` mudaram.
+  - `<PREENCHER: número de teste 1322904704240693 foi mantido ativo para
+    desenvolvimento / foi aposentado — decisão tomada em <data>>`.
+- **Consequences**:
+  - `<PREENCHER após validação end-to-end: confirmação de que uma mensagem
+    outbound real foi entregue, sem #131030 nem #130497, e do teste de lead
+    "quente" (transição de stage para lead_quente)>`.
+  - Quando o volume crescer o suficiente para exigir tier maior ou o selo de
+    conta oficial, será necessário completar a Verificação de Negócio. Nesse
+    momento, abrir um **MEI** (gratuito, 100% online) é o caminho mais barato
+    — a Meta aceita MEI, Contrato Social, extrato bancário empresarial ou
+    conta de consumo em nome do negócio, não exclusivamente CNPJ completo.
+
+### Lição aprendida: deploy de Edge Functions via MCP do Supabase
+
+Ao fazer deploy de uma função via `mcp__Supabase__deploy_edge_function`, o
+payload precisa incluir **todos** os arquivos do bundle, inclusive os de
+`_shared/`, e as referências de import dentro desses arquivos devem usar
+`./_shared/...` (relativo ao próprio bundle enviado), não `../_shared/...`
+como está no repositório local (onde `_shared/` é irmã de `webhook/`, não
+filha). O deploy que corrigiu o `#131030` e o Gemini já seguiu esse padrão;
+qualquer deploy futuro da função `webhook` precisa repetir isso, ou a função
+sobe sem as dependências e quebra em runtime.
