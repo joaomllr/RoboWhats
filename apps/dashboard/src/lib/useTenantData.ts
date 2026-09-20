@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
-import { ChatMessage, Contact, Tenant } from "../types";
+import { ChatMessage, Contact, Tenant, BotConfig } from "../types";
+import { botConfigRowToUi, botConfigUiToRow, BotConfigRow } from "./botConfig";
+import { initialBotConfig } from "./demoData";
 
 interface ConversationRow {
   id: string;
@@ -15,6 +17,8 @@ export interface TenantData {
   tenant: Tenant | null;
   contacts: Contact[];
   messagesMap: Record<string, ChatMessage[]>;
+  botConfig: BotConfig;
+  saveBotConfig: (config: BotConfig) => Promise<{ error: string | null }>;
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -53,6 +57,7 @@ export function useTenantData(userId: string | null): TenantData {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [messagesMap, setMessagesMap] = useState<Record<string, ChatMessage[]>>({});
+  const [botConfig, setBotConfig] = useState<BotConfig>(initialBotConfig);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,12 +82,18 @@ export function useTenantData(userId: string | null): TenantData {
       return;
     }
 
-    setTenant(membership.tenants as unknown as Tenant);
+    const loadedTenant = membership.tenants as unknown as Tenant;
+    setTenant(loadedTenant);
 
-    const [contactsResult, conversationsResult] = await Promise.all([
+    const [contactsResult, conversationsResult, botConfigResult] = await Promise.all([
       supabase.from("contacts").select("*").order("updated_at", { ascending: false }),
       supabase.from("conversations").select("*").order("created_at", { ascending: true }),
+      supabase.from("bot_configs").select("*").eq("tenant_id", loadedTenant.id).maybeSingle(),
     ]);
+
+    if (botConfigResult.data) {
+      setBotConfig(botConfigRowToUi(botConfigResult.data as BotConfigRow));
+    }
 
     if (contactsResult.error || conversationsResult.error) {
       setError(contactsResult.error?.message || conversationsResult.error?.message || null);
@@ -120,6 +131,23 @@ export function useTenantData(userId: string | null): TenantData {
     load();
   }, [userId, load]);
 
+  const saveBotConfig = useCallback(
+    async (config: BotConfig): Promise<{ error: string | null }> => {
+      if (!tenant) return { error: "Nenhum tenant carregado." };
+
+      const row = botConfigUiToRow(tenant.id, config);
+      const { error: upsertError } = await supabase
+        .from("bot_configs")
+        .upsert(row, { onConflict: "tenant_id" });
+
+      if (upsertError) return { error: upsertError.message };
+
+      setBotConfig(config);
+      return { error: null };
+    },
+    [tenant]
+  );
+
   // O bot grava as mensagens pela Edge Function, fora desta aba. Sem Realtime a
   // inbox só mudaria com refresh manual.
   useEffect(() => {
@@ -136,5 +164,5 @@ export function useTenantData(userId: string | null): TenantData {
     };
   }, [userId, load]);
 
-  return { tenant, contacts, messagesMap, loading, error, reload: load };
+  return { tenant, contacts, messagesMap, botConfig, saveBotConfig, loading, error, reload: load };
 }

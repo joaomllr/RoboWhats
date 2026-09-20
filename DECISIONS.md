@@ -686,3 +686,93 @@ sobe sem as dependências e quebra em runtime.
     Parte 3.2 e a suspensão automática por inadimplência do item 6 devem
     compartilhar a mesma checagem de status no `webhook/index.ts` — não
     implementar como dois mecanismos paralelos.
+
+---
+
+## ADR-018: Área de Administrador da Fluxi + Configuração IA deixa de ser cosmética
+
+- **Status**: Accepted
+- **Context**:
+  - Não existia nenhum conceito de "admin da Fluxi" (dono da plataforma) no
+    schema — `tenant_users.role = 'admin'` é só admin *daquele tenant
+    específico*. Confirmado com o usuário: identidade separada, nova tabela
+    `platform_admins` (não lista fixa de e-mails no código).
+  - Achado ao investigar como o admin reaproveitaria o formulário de
+    "Configuração IA" (pedido explícito do usuário): **a tela nunca foi
+    persistida em lugar nenhum**. `BotConfigManager` só vivia em `useState`
+    local no `App.tsx`; `handleSaveConfig` fazia `setBotConfig(...)` e
+    parava aí. Pior — `webhook/index.ts` chamava `runGeminiAgent(...)` sem
+    nunca passar `config`, então o bot sempre respondia com o
+    `defaultBotConfig` genérico de `_shared/stateMachine.ts`, **para
+    qualquer tenant**, independente do que estivesse salvo (ou não) no
+    painel. O mesmo valia para `checkHumanEscalation()`, chamada sem
+    `config` — as palavras-chave de transbordo configuradas por um tenant
+    nunca eram realmente usadas. Reaproveitar esse componente pro admin só
+    fazia sentido depois de consertar isso — senão seria duplicar uma tela
+    que não muda nada de verdade.
+- **Decision**:
+  - **`platform_admins`** (migração `20260921000000_...`): tabela mínima
+    `user_id -> auth.users`, RLS só permite ler a própria linha (uso
+    client-side: mostrar/esconder o link "Painel Admin"). Autorização real
+    nunca depende disso sozinho — sempre reconferida server-side.
+  - **`bot_configs`** (mesma migração): uma linha por tenant, no formato
+    exato de `_shared/stateMachine.ts`'s `BotConfigData` — o webhook lê
+    direto, sem mapeamento. RLS deixa cada tenant ler/escrever a própria
+    linha (mesmo padrão de escrita direta já usado em `contacts`/
+    `conversations` neste projeto — não é uma regra deste código exigir RPC
+    para tudo). `webhook/index.ts` agora carrega essa linha antes do turno
+    de IA e da checagem de escalação, com fallback pro `defaultBotConfig`
+    quando o tenant ainda não configurou nada (comportamento idêntico ao
+    anterior nesse caso — nada quebra para tenants existentes).
+  - **`tenant_status_history`**: auditoria de toda mudança de status
+    (pausar/cancelar/reativar pelo admin, e a suspensão automática por
+    inadimplência do ADR-017 quando existir) — sem policy de cliente, só o
+    Edge Function novo escreve/lê.
+  - **`admin-console`** (Edge Function nova, `service_role` +
+    `auth.getUser()` + checagem de `platform_admins`, mesmo padrão de
+    autenticação do `onboard-tenant`): `list_tenants`, `get_tenant_detail`,
+    `create_tenant`, `update_tenant_status`, `save_tenant_bot_config`. Opera
+    cross-tenant de propósito — por isso passa longe de RLS (que isola por
+    definição) e centraliza a autorização num único ponto server-side, igual
+    ao resto do projeto faz para operações que não são "o próprio usuário
+    mexendo no próprio tenant".
+  - Primeira Edge Function deste projeto de fato chamada pelo navegador
+    (`onboard-tenant` nunca chegou a ser invocada pelo frontend —
+    confirmado por busca no código; o onboarding público ainda é 100%
+    simulado). Por isso ganhou CORS com allowlist explícita
+    (`_shared/cors.ts`) em vez de wildcard, cumprindo o que `SECURITY.md`
+    2.8 já prometia sem nunca ter sido posto à prova.
+  - **Cadastro manual do cliente pelo admin não cria um login para ele**
+    nesta rodada — só `tenants` + `phone_number_index` (opcional, pode ficar
+    em branco até o número físico existir) + `bot_configs`. Dar acesso de
+    login ao cliente fica como próximo passo separado, fora do escopo do que
+    foi pedido ("replicar os mesmos ajustes de configuração", não o convite
+    de conta).
+  - `/admin` não é uma rota de URL real — este app não usa react-router (é
+    inteiramente `currentView` em estado), então a "rota protegida" é um
+    valor a mais de `currentView`, gateado por `isPlatformAdmin` (lido da
+    própria tabela) e reforçado de verdade no Edge Function. Manter
+    consistência com a arquitetura existente em vez de introduzir roteamento
+    novo só para esta tela.
+  - Admin cadastrado nesta sessão: `jmullerwk@outlook.com` (confirmado com o
+    usuário — já era o admin do tenant de teste usado durante toda a sessão).
+- **Consequences**:
+  - "Configuração IA" agora afeta de verdade o comportamento do bot em
+    produção — inclusive pra tenants que já existiam antes desta mudança
+    (fallback preserva o comportamento anterior até alguém salvar uma config
+    real).
+  - A tela de admin não pôde ser validada de ponta a ponta neste ambiente:
+    o sandbox não alcança a URL do Supabase nem o Google/Meta (mesma
+    limitação de rede de todo o resto da sessão). Build, typecheck e o fluxo
+    de demonstração (sem login) foram validados via Playwright headless; o
+    fluxo real (login como `jmullerwk@outlook.com`, listar/criar/pausar
+    cliente) precisa ser testado pelo usuário no dashboard publicado.
+  - `verify_jwt: true` no `admin-console` (diferente de `webhook`/
+    `proactive-recovery`, que precisam de `--no-verify-jwt` por não terem
+    chamador com sessão Supabase) — aqui o chamador é sempre um usuário
+    logado de verdade, então a verificação de JWT da própria plataforma some
+    a mais uma camada, sem custo. Se o preflight CORS (`OPTIONS`) esbarrar
+    nisso na prática (gateway do Supabase rejeitando antes mesmo do
+    `_shared/cors.ts` rodar), a correção é trocar para
+    `--no-verify-jwt`, já que a autenticação real já é feita manualmente
+    dentro da função de qualquer forma.

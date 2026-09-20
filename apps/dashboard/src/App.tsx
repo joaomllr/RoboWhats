@@ -9,6 +9,7 @@ import {
   Moon,
   ExternalLink,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { useTenantData } from "./lib/useTenantData";
@@ -18,6 +19,7 @@ import { OnboardingWizard } from "./components/onboarding/OnboardingWizard";
 import { UnifiedInbox } from "./components/inbox/UnifiedInbox";
 import { SalesInsights } from "./components/analytics/SalesInsights";
 import { BotConfigManager } from "./components/config/BotConfigManager";
+import { AdminConsole } from "./components/admin/AdminConsole";
 import {
   initialTenant,
   initialContacts,
@@ -30,8 +32,9 @@ import { Contact, ChatMessage, BotConfig, Tenant, FunnelStage, LeadScore } from 
 export const App: React.FC = () => {
   // Navigation View State
   const [currentView, setCurrentView] = useState<
-    "landing" | "login" | "onboarding" | "dashboard"
+    "landing" | "login" | "onboarding" | "dashboard" | "admin"
   >("landing");
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [selectedPlanForOnboarding, setSelectedPlanForOnboarding] = useState<
     "starter" | "pro" | "scale"
   >("pro");
@@ -59,6 +62,24 @@ export const App: React.FC = () => {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // "Admin da Fluxi" é um nível acima do role='admin' de um tenant (esse é
+  // só admin daquela empresa cliente). RLS em platform_admins só deixa o
+  // usuário ler a própria linha — isso é puramente pra decidir se mostra o
+  // link no menu; a autorização de verdade é sempre checada de novo no
+  // Edge Function admin-console.
+  useEffect(() => {
+    if (!session?.user.id) {
+      setIsPlatformAdmin(false);
+      return;
+    }
+    supabase
+      .from("platform_admins")
+      .select("user_id")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setIsPlatformAdmin(Boolean(data)));
+  }, [session?.user.id]);
+
   const live = useTenantData(session?.user.id ?? null);
   const isLive = Boolean(session);
 
@@ -66,6 +87,8 @@ export const App: React.FC = () => {
   const viewTenant = isLive ? live.tenant ?? initialTenant : tenant;
   const viewContacts = isLive ? live.contacts : contacts;
   const viewMessagesMap = isLive ? live.messagesMap : messagesMap;
+  const viewBotConfig = isLive ? live.botConfig : botConfig;
+  const [configSaveError, setConfigSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -163,8 +186,14 @@ export const App: React.FC = () => {
   };
 
   // Config: Save Bot Config
-  const handleSaveConfig = (updatedConfig: BotConfig) => {
+  const handleSaveConfig = async (updatedConfig: BotConfig) => {
+    if (isLive) {
+      const { error } = await live.saveBotConfig(updatedConfig);
+      setConfigSaveError(error);
+      return { error };
+    }
     setBotConfig(updatedConfig);
+    return { error: null };
   };
 
   return (
@@ -194,7 +223,18 @@ export const App: React.FC = () => {
       )}
 
       {/* ============================================================= */}
-      {/* 3. AUTHENTICATED MULTI-TENANT DASHBOARD                       */}
+      {/* 3. PLATFORM ADMIN CONSOLE (gated by platform_admins membership) */}
+      {/* ============================================================= */}
+      {currentView === "admin" && isPlatformAdmin && (
+        <AdminConsole
+          onBack={() => setCurrentView("dashboard")}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        />
+      )}
+
+      {/* ============================================================= */}
+      {/* 4. AUTHENTICATED MULTI-TENANT DASHBOARD                       */}
       {/* ============================================================= */}
       {currentView === "dashboard" && (
         <div className="flex flex-col min-h-screen bg-fluxi-cloud dark:bg-fluxi-graphite">
@@ -313,6 +353,16 @@ export const App: React.FC = () => {
                 {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
               </button>
 
+              {isPlatformAdmin && (
+                <button
+                  onClick={() => setCurrentView("admin")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-fluxi-blue bg-fluxi-blueLight dark:bg-fluxi-blue/10 hover:bg-fluxi-blue hover:text-white transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Painel Admin</span>
+                </button>
+              )}
+
               {/* Back to Public Landing */}
               <button
                 onClick={() => setCurrentView("landing")}
@@ -366,7 +416,11 @@ export const App: React.FC = () => {
             {activeTab === "analytics" && <SalesInsights contacts={viewContacts} usage={usage} />}
 
             {activeTab === "config" && (
-              <BotConfigManager config={botConfig} onSaveConfig={handleSaveConfig} />
+              <BotConfigManager
+                config={viewBotConfig}
+                onSaveConfig={handleSaveConfig}
+                saveError={configSaveError}
+              />
             )}
           </main>
         </div>

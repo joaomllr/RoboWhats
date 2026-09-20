@@ -41,10 +41,11 @@ The **WhatsApp Sales Hub** platform processes third-party personal data, leads, 
 - **Rule**: Client apps must never possess or execute with `service_role` credentials.
 - **Implementation**:
   - The dashboard authenticates end-user requests via Supabase JWT verification and RLS (`auth.uid()`) — never `service_role`.
-  - Edge Functions run with `service_role` (they need to write across tenants), but each authenticates its *caller* by the mechanism appropriate to who that caller actually is — there is no single uniform check across all three:
+  - Edge Functions run with `service_role` (they need to write across tenants), but each authenticates its *caller* by the mechanism appropriate to who that caller actually is — there is no single uniform check across all four:
     - `webhook`: the caller is Meta, not a Supabase user. Authenticated by HMAC signature (2.2), and `tenant_id` is resolved from the trusted `phone_number_index` lookup, never from client input.
     - `onboard-tenant`: the caller is a logged-in dashboard user. The function verifies their `Authorization` header against Supabase Auth (`auth.getUser()`) and links *that* verified user as tenant admin — a client-supplied `userId` field is never trusted for this. (An earlier version accepted `userId` directly from the request body with no verification at all, letting any caller link an arbitrary user as admin of a new tenant; fixed together with this document.)
     - `proactive-recovery`: the caller is a scheduler/cron, which holds no Supabase session at all. Authenticated by a shared secret (`PROACTIVE_RECOVERY_SECRET`) checked against a request header, fail-closed if the secret isn't configured. (Previously deployed with no authentication of any kind — anyone who found the URL could trigger real WhatsApp sends against real contacts on demand.)
+    - `admin-console`: the caller is a logged-in dashboard user *claiming* to be a platform operator, not just a tenant admin. Same `auth.getUser()` verification as `onboard-tenant`, plus a second check against `public.platform_admins` — a table with no client-writable policies, populated only by direct database access. Every action (`list_tenants`, `create_tenant`, `update_tenant_status`, `save_tenant_bot_config`, `get_tenant_detail`) operates cross-tenant by design, which is exactly why this function exists instead of relying on RLS: RLS isolates a user to their own tenant by definition, so cross-tenant admin operations are necessarily centralized here, in code, behind an explicit allowlist check — never behind a broadened RLS policy.
 
 ### 2.5. Least Privilege & Multi-Tenant Authorization
 - **Rule**: Multi-tenant authorization depends on verified membership records in `public.tenant_users`.
@@ -62,7 +63,7 @@ The **WhatsApp Sales Hub** platform processes third-party personal data, leads, 
 ### 2.8. Strict CORS Configuration
 - **Rule**: No backend endpoint may allow wildcard origins (`*`).
 - **Implementation**:
-  - All browser-facing HTTPS endpoints enforce explicit CORS white-lists matching the verified production domain and local development emulator origin.
+  - `admin-console` (`_shared/cors.ts`) is the first Edge Function actually invoked from the browser (`webhook` is Meta-to-server; `onboard-tenant` exists but the public onboarding UI has never called it — it is still fully simulated client-side). It enforces an explicit origin allowlist (production dashboard domain + local dev) instead of a wildcard — this section previously described that behavior as already in place platform-wide, which was not true before `admin-console` existed, since there was no browser-facing endpoint to enforce it on.
 
 ### 2.9. Automated Dependency Auditing
 - **Rule**: Automated checks must prevent vulnerable dependencies from entering production.

@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { validateMetaSignature } from "../_shared/signature.ts";
-import { AgnosticStateMachineEngine } from "../_shared/stateMachine.ts";
+import { AgnosticStateMachineEngine, BotConfigData, defaultBotConfig } from "../_shared/stateMachine.ts";
 import { runGeminiAgent } from "../_shared/geminiAgent.ts";
 import { sendWhatsAppMessage } from "../_shared/metaSender.ts";
 import { MetaWebhookPayload } from "../_shared/types.ts";
@@ -170,7 +170,7 @@ Deno.serve(async (req: Request) => {
     // -------------------------------------------------------------
     const { data: indexRecord, error: indexError } = await supabase
       .from("phone_number_index")
-      .select("tenant_id")
+      .select("tenant_id, tenants(status)")
       .eq("phone_number_id", phoneNumberId)
       .maybeSingle();
 
@@ -180,6 +180,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const tenantId = indexRecord.tenant_id;
+    // "tenants" vem como array no retorno do join do supabase-js mesmo sendo
+    // 1:1 (FK simples) — pega o primeiro elemento.
+    const tenantStatus = (indexRecord as any).tenants?.[0]?.status ?? (indexRecord as any).tenants?.status;
+    const tenantIsActive = tenantStatus === "active";
 
     // -------------------------------------------------------------
     // 4. Contact Lookup or Creation
@@ -217,14 +221,50 @@ Deno.serve(async (req: Request) => {
       message_type: incomingMessage.type || "text",
     });
 
+    // ADR-017 (item 6): tenant suspenso (trial vencido/pagamento falho, ou
+    // pausado manualmente pelo admin) continua registrando mensagens
+    // recebidas — nada se perde, dá pra reativar sem perder histórico — mas
+    // para de gerar resposta automática e não conta uso.
+    if (!tenantIsActive) {
+      console.warn(`Tenant ${tenantId} não está ativo (status: ${tenantStatus}) — mensagem registrada, sem resposta.`);
+      return new Response("TENANT_NOT_ACTIVE", { status: 200 });
+    }
+
+    // -------------------------------------------------------------
+    // 4.5 Load tenant's real bot config (Configuração IA), if configured.
+    // Sem isso, "Configuração IA" era 100% cosmético — nem persistia, nem o
+    // webhook lia — e o bot sempre respondia com o defaultBotConfig genérico
+    // pra qualquer tenant, independente do que estivesse salvo no painel.
+    // -------------------------------------------------------------
+    const { data: botConfigRow } = await supabase
+      .from("bot_configs")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    const botConfig: BotConfigData = botConfigRow
+      ? {
+          botName: botConfigRow.bot_name,
+          tone: botConfigRow.tone,
+          companyDescription: botConfigRow.company_description,
+          salesPitch: botConfigRow.sales_pitch,
+          knowledgeBase: botConfigRow.knowledge_base,
+          businessHoursEnabled: botConfigRow.business_hours_enabled,
+          businessHoursStart: botConfigRow.business_hours_start,
+          businessHoursEnd: botConfigRow.business_hours_end,
+          outsideHoursMessage: botConfigRow.outside_hours_message,
+          escalationKeywords: botConfigRow.escalation_keywords,
+          escalationMessage: botConfigRow.escalation_message,
+        }
+      : defaultBotConfig;
+
     // -------------------------------------------------------------
     // 5. Escalation & Business Hours Evaluation
     // -------------------------------------------------------------
-    const isEscalation = AgnosticStateMachineEngine.checkHumanEscalation(messageText);
+    const isEscalation = AgnosticStateMachineEngine.checkHumanEscalation(messageText, botConfig);
 
     if (isEscalation) {
-      const escalationReply =
-        "Perfeito! Já transferi seu atendimento para um de nossos especialistas humanos. Em instantes um consultor falará com você.";
+      const escalationReply = botConfig.escalationMessage || defaultBotConfig.escalationMessage;
 
       await sendWhatsAppMessage({
         phoneNumberId,
@@ -265,6 +305,7 @@ Deno.serve(async (req: Request) => {
       contactName: contact.name,
       currentStage: contact.stage,
       conversationHistory: history,
+      config: botConfig,
     });
 
     // Determine next stage

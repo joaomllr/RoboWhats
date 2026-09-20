@@ -47,4 +47,8 @@ jobs:
           # Supabase. Sem --no-verify-jwt, o CLI usa o padrão (verify_jwt: true)
           # e passaria a rejeitar até o próprio chamador legítimo.
           supabase functions deploy proactive-recovery --project-ref nsotmdvalhcqrigepkcu --no-verify-jwt
+          # admin-console É chamada por um usuário Supabase logado de verdade
+          # (o admin da Fluxi no dashboard) — verify_jwt: true (padrão do CLI,
+          # sem a flag) é o correto aqui, ao contrário das três de cima.
+          supabase functions deploy admin-console --project-ref nsotmdvalhcqrigepkcu
 

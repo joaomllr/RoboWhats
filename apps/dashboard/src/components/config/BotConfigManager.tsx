@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bot,
   Clock,
@@ -8,29 +8,44 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  AlertTriangle,
   Sparkles,
 } from "lucide-react";
 import { BotConfig } from "../../types";
 
 interface BotConfigManagerProps {
   config: BotConfig;
-  onSaveConfig: (updatedConfig: BotConfig) => void;
+  onSaveConfig: (updatedConfig: BotConfig) => void | Promise<{ error: string | null }>;
+  saveError?: string | null;
 }
 
 export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
   config: initialConfig,
   onSaveConfig,
+  saveError = null,
 }) => {
   const [config, setConfig] = useState<BotConfig>(initialConfig);
   const [newKbItem, setNewKbItem] = useState("");
   const [newKeyword, setNewKeyword] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // O config real (tenant logado) chega de forma assíncrona depois do
+  // primeiro render — sem isso o formulário ficaria travado no valor inicial
+  // (config demo) mesmo depois dos dados reais carregarem.
+  useEffect(() => {
+    setConfig(initialConfig);
+  }, [initialConfig]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveConfig(config);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setIsSaving(true);
+    const result = await onSaveConfig(config);
+    setIsSaving(false);
+    if (!result || !result.error) {
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+    }
   };
 
   const handleAddKb = () => {
@@ -98,9 +113,15 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
 
         <button
           type="submit"
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-fluxi-green hover:bg-emerald-600 active:scale-95 text-white text-sm font-bold rounded-xl shadow-md shadow-fluxi-green/20 transition-all self-start sm:self-auto"
+          disabled={isSaving}
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-fluxi-green hover:bg-emerald-600 active:scale-95 text-white text-sm font-bold rounded-xl shadow-md shadow-fluxi-green/20 transition-all self-start sm:self-auto disabled:opacity-60"
         >
-          {savedSuccess ? (
+          {isSaving ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Salvando...</span>
+            </>
+          ) : savedSuccess ? (
             <>
               <CheckCircle2 className="w-4 h-4" />
               <span>Salvo com Sucesso!</span>
@@ -113,6 +134,13 @@ export const BotConfigManager: React.FC<BotConfigManagerProps> = ({
           )}
         </button>
       </div>
+
+      {saveError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>Erro ao salvar: {saveError}</span>
+        </div>
+      )}
 
       {/* 1. Persona da IA */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
