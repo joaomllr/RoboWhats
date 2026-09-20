@@ -93,6 +93,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
+  const handleScrollToPricing = () => {
+    document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const handleOpenCheckout = (plan: "starter" | "pro" | "scale") => {
     setSelectedPlanForCheckout(plan);
     setCheckoutModalOpen(true);
@@ -205,7 +209,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
-                onClick={() => handleOpenCheckout("pro")}
+                onClick={handleScrollToPricing}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-bold text-white bg-fluxi-green hover:bg-fluxi-greenHover active:scale-95 rounded-xl shadow-lg shadow-fluxi-green/25 transition-all"
               >
                 <span>Começar Agora com 7 Dias Grátis</span>
@@ -587,6 +591,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <p>✓ Ativação imediata sem burocracia</p>
                 <p>✓ Configuração do número em poucos minutos</p>
               </div>
+            </div>
+
+            <div className="bg-fluxi-blueLight dark:bg-fluxi-blue/10 border border-fluxi-blue/20 dark:border-fluxi-blue/30 rounded-xl p-3 mb-5">
+              <p className="text-xs text-fluxi-graphite dark:text-slate-100 font-semibold">
+                Você não será cobrado agora.
+              </p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                Em 7 dias, cobraremos{" "}
+                {selectedPlanForCheckout === "starter"
+                  ? "R$ 197/mês"
+                  : selectedPlanForCheckout === "pro"
+                  ? "R$ 497/mês"
+                  : "R$ 997/mês"}{" "}
+                no cartão informado, a menos que cancele antes.
+              </p>
             </div>
 
             <div className="space-y-3 mb-6">

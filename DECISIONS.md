@@ -576,3 +576,113 @@ sobe sem as dependências e quebra em runtime.
   - Uma vez conectado, todo push em `main` que toque `apps/dashboard/**`
     republica automaticamente — mesmo padrão já em uso nos outros projetos
     Cloudflare do usuário.
+
+---
+
+## ADR-017: Modelo de Contratação e Cobrança
+
+- **Status**: Accepted — decisões de produto confirmadas; integração real de
+  pagamento ainda **não implementada** (ver Consequences).
+- **Context**:
+  - Uma auditoria manual do fluxo publicado (`robowhats-dashboard.muulej.workers.dev`,
+    clique por clique num navegador real) encontrou uma contradição: o CTA do
+    herói ("Começar Agora com 7 Dias Grátis") pula direto para um modal de
+    cobrança do Plano PRO, sem o cliente escolher nada — enquanto a própria
+    seção "Planos & Preços" da mesma landing lista 3 planos com botões
+    individuais. O usuário confirmou não ter ainda decidido, na prática, como
+    a contratação deveria funcionar.
+  - O modal de checkout existente é inteiramente uma simulação visual — campo
+    de cartão desabilitado com texto fixo, "Nenhuma cobrança real será
+    realizada" — sem gateway de pagamento, tabela de assinatura, ou qualquer
+    enforcement de acesso por status de pagamento.
+  - `BotConfigManager` (tela "Configuração IA") não tem nenhuma restrição por
+    `plan_tier` — confirmado por leitura do componente. As diferenças
+    listadas na landing entre Starter/Pro/Scale (ex: "IA com a personalidade
+    da sua marca" exclusiva do Pro/Scale) são hoje só texto de marketing, sem
+    correspondência no código.
+- **Decision** (uma pergunta de cada vez, com recomendação baseada em prática
+  de mercado — trial-with-card, dunning, dois dos maiores frameworks de
+  billing SaaS hoje):
+  1. **Trial pede cartão antecipado** ("trial with card"), com cobrança
+     automática no dia 7 caso o cliente não cancele antes. Justificativa:
+     benchmarks de conversão de mercado (ProfitWell/Paddle) mostram trials
+     com cartão convertendo tipicamente 50–60%+ contra 15–25% sem cartão; o
+     onboarding da Fluxi já exige esforço real (conectar WhatsApp de
+     verdade), então quem chega até o fim já é um lead qualificado. O modal
+     de checkout precisa deixar isso explícito na tela ("Você não será
+     cobrado agora. Em 7 dias, cobraremos R$ X/mês, a menos que cancele.") —
+     hoje ele não diz isso em lugar nenhum.
+  2. **Provedor de pagamento: Mercado Pago** (API de Assinaturas/`preapproval`).
+     Justificativa: cliente-alvo é PME brasileira; Mercado Pago tem a melhor
+     cobertura de meios de pagamento locais (Pix, boleto, cartão nacional) e
+     é o mais reconhecido pelo público-alvo. Stripe é tecnicamente mais
+     maduro mas cobra em USD por padrão e tem penetração menor em Pix.
+     - **Tipo de conta**: confirmado na documentação oficial
+       ([Pré-requisitos — Assinaturas](https://www.mercadopago.com.br/developers/pt/docs/subscriptions/requirements))
+       que a API de Assinaturas não exige CNPJ — só uma conta vendedor
+       Mercado Pago, que pode ser CPF. **Decisão: começar com CPF para
+       testar a integração agora; usuário avalia abrir MEI depois**, antes
+       de cobrar de clientes pagantes de verdade — não por exigência do
+       Mercado Pago, mas por nota fiscal (clientes B2B vão precisar dela
+       para lançar como despesa) e enquadramento tributário de receita
+       recorrente (o mesmo caminho de MEI já registrado no ADR-013 para a
+       Verificação de Negócio da Meta).
+  3. **Dados de cartão nunca tocam o backend da Fluxi.** Tokenização
+     client-side via Mercado Pago Checkout Bricks — o formulário de cartão
+     roda no navegador do cliente e manda o dado direto para o Mercado Pago;
+     o backend só recebe um token/ID de cliente de volta. Mantém a Fluxi
+     fora do escopo pesado de PCI-DSS (nível SAQ A). Esta é uma regra
+     arquitetural obrigatória para a implementação futura, não uma
+     recomendação opcional.
+  4. **Cliente cadastrado manualmente pelo admin (Parte 3) é um caminho
+     separado do onboarding público.** Não força cartão nem checkout — o
+     admin define `plan_tier`/`status` diretamente, como uma venda
+     assistida/negociada (padrão comum em B2B SaaS para contas
+     enterprise/cortesia/beta).
+  5. **Momento de escolha do plano**: o CTA do herói passa a rolar até a
+     seção "Planos & Preços" em vez de abrir o modal do Pro direto — remove
+     a contradição descrita no Context. Os botões individuais de cada plano
+     continuam abrindo o checkout com o plano certo pré-selecionado (já
+     funcionam assim hoje).
+  6. **Fim do trial sem pagamento ou falha de cobrança**: tentativa de
+     cobrança no dia 7 → sucesso mantém `active`; falha ou ausência de
+     tentativa move para um estado equivalente a `past_due` com aviso
+     automático ao cliente e **2 dias de carência** antes de mover para
+     `suspended` de fato (reduz churn involuntário por cartão vencido —
+     prática padrão de dunning do mercado, ex: Stripe Smart Retries).
+     Enquanto `suspended`, o `webhook` para de processar mensagens novas
+     daquele tenant (mesma checagem de status que a função "Pausar cliente"
+     do admin, Parte 3, vai usar — uma implementação serve os dois casos) —
+     mensagens recebidas continuam sendo registradas, só não geram resposta
+     automática.
+  7. **Cancelamento durante o trial** (nenhuma cobrança ainda ocorreu):
+     suspende imediatamente.
+  8. **Cancelamento como assinante já pagante**: mantém `active` até o fim
+     do período já pago, só então move para `cancelled` sem tentar cobrar de
+     novo — padrão universal de serviços por assinatura (Netflix, Spotify,
+     etc.); cortar na hora equivaleria a um reembolso parcial não devolvido.
+  9. **Diferenças reais de funcionalidade entre planos permanecem apenas
+     texto de marketing por enquanto** — não serão implementadas como
+     enforcement técnico nesta rodada. Justificativa: não há ainda nenhum
+     cliente pagante real; construir restrição por plano antes de validar o
+     próprio modelo de cobrança é otimizar para um problema que não existe
+     ainda, com alto risco de retrabalho assim que os planos forem
+     revisados. Registrado aqui como dívida técnica conhecida e consciente,
+     não como omissão.
+- **Consequences**:
+  - Item 5 é a única mudança de código que sai desta rodada (correção do
+    item 1.4 do relatório de UX) — CTA do herói + explicitação dos termos de
+    cobrança no modal existente.
+  - Itens 1–4 e 6–8 descrevem um modelo já decidido, mas **cuja infraestrutura
+    ainda não existe**: não há integração real com Mercado Pago, tabela de
+    assinatura/fatura no Supabase, Edge Function de webhook de pagamento, nem
+    checagem de status de assinatura no roteamento multi-tenant do
+    `webhook/index.ts`. Construir isso é um trabalho à parte, maior que uma
+    correção de UX, e depende de credenciais do Mercado Pago (Access
+    Token/Public Key) que o usuário ainda precisa gerar e configurar como
+    secret do Supabase — seguindo o mesmo padrão de nunca passar o valor em
+    texto puro pelo chat (ver incidentes de exposição de token no ADR-015).
+  - Quando essa infraestrutura for construída, a função "Pausar cliente" da
+    Parte 3.2 e a suspensão automática por inadimplência do item 6 devem
+    compartilhar a mesma checagem de status no `webhook/index.ts` — não
+    implementar como dois mecanismos paralelos.
