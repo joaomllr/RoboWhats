@@ -95,7 +95,11 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
     // ("Unterminated string in JSON"). Aumentar o teto não resolve de forma
     // confiável — o raciocínio tende a se expandir junto. Quem controla isso é
     // generation_config.thinking_level, que só existe aqui. O response_format com
-    // schema ainda garante que a resposta venha no formato esperado.
+    // schema ainda garante que a resposta venha no formato esperado. Confirmado
+    // contra a documentação oficial (ai.google.dev) em 20/set/2026: é o endpoint
+    // recomendado pelo Google para desenvolvimento novo (generateContent continua
+    // suportado, mas Interactions é o caminho novo), e thinking_level é o campo
+    // atual — thinking_budget está descontinuado nos modelos Gemini 3.x.
     const res = await fetchWithRetry(
       "https://generativelanguage.googleapis.com/v1beta/interactions",
       {
@@ -130,16 +134,28 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      console.error(`Gemini API error [${res.status}]: ${errBody}`);
+      console.warn(`Gemini API returned ${res.status}, falling back to mock. Body: ${errBody.slice(0, 300)}`);
       return generateMockTurn(incomingMessage, contactName, currentStage);
     }
 
     const data = await res.json();
-    const outputText = data.output_text ?? data.interaction?.output_text;
+
+    // `interaction.output_text` só existe como propriedade de conveniência dos
+    // SDKs oficiais (Python/JS `client.interactions.create(...)`) — nunca foi
+    // um campo do JSON cru. Quem chama a REST API direto via fetch(), como
+    // aqui, recebe `steps`: um array de passos (`thought`, `model_output`,
+    // etc.), e o texto fica em steps[].content[].text do passo do tipo
+    // "model_output". Formato confirmado na documentação oficial e vigente
+    // desde a migração com breaking change de maio/2026 (schema anterior
+    // removido em 8/jun/2026). Achar isso exigiu comparar o request real
+    // contra o guia de breaking changes — o JSON.parse de output_text nunca
+    // teria funcionado, mesmo antes de maio/2026.
+    const modelOutputStep = data.steps?.find((s: any) => s?.type === "model_output");
+    const outputText = modelOutputStep?.content?.find((c: any) => c?.type === "text")?.text;
 
     if (typeof outputText !== "string") {
-      console.error(
-        `Gemini: resposta sem output_text. Chaves recebidas: ${JSON.stringify(Object.keys(data))}`
+      console.warn(
+        `Gemini: resposta sem texto em steps[].content[].text. Chaves recebidas: ${JSON.stringify(Object.keys(data))}`
       );
       return generateMockTurn(incomingMessage, contactName, currentStage);
     }
@@ -157,12 +173,12 @@ Mensagem atual do cliente (${contactName}): ${incomingMessage}`;
       nextState: leadScore === "quente" ? "lead_quente" : currentStage,
       isEscalationRequested: false,
       tokenUsage: {
-        promptTokens: usage?.input_tokens ?? usage?.prompt_tokens ?? 220,
-        candidateTokens: usage?.output_tokens ?? usage?.completion_tokens ?? 75,
+        promptTokens: usage?.total_input_tokens ?? usage?.input_tokens ?? usage?.prompt_tokens ?? 220,
+        candidateTokens: usage?.total_output_tokens ?? usage?.output_tokens ?? usage?.completion_tokens ?? 75,
       },
     };
   } catch (err) {
-    console.error("Gemini turn failed, usando fallback:", err);
+    console.warn(`Gemini call failed, falling back to mock. Error: ${err instanceof Error ? err.message : String(err)}`);
     return generateMockTurn(incomingMessage, contactName, currentStage);
   }
 }
