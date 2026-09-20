@@ -53,6 +53,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   const [testReply, setTestReply] = useState<string | null>(null);
   const [isGeneratingTestReply, setIsGeneratingTestReply] = useState(false);
 
+  const handleLeaveOnboarding = () => {
+    const confirmed = window.confirm(
+      "Isso vai descartar o que você preencheu. Voltar para o site?"
+    );
+    if (confirmed) {
+      onCancel();
+    }
+  };
+
   const handleVerifyMetaConnection = () => {
     setIsVerifyingConnection(true);
     setTimeout(() => {
@@ -106,7 +115,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 sm:p-10">
         {/* Brand Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-5 mb-6">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLeaveOnboarding}
+            className="flex items-center gap-3 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-fluxi-blue"
+            aria-label="Voltar ao início (descarta o progresso)"
+          >
             <img
               src="/logo/icon-rounded-512.png"
               alt="Fluxi"
@@ -125,9 +139,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 Sites • Automações • WhatsApp Bots
               </p>
             </div>
-          </div>
+          </button>
           <button
-            onClick={onCancel}
+            onClick={handleLeaveOnboarding}
             className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
           >
             Cancelar Onboarding

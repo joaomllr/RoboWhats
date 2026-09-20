@@ -86,6 +86,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }, 600);
   };
 
+  const handleLogoClick = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (window.location.hash) {
+      window.history.pushState(null, "", window.location.pathname + window.location.search);
+    }
+  };
+
   const handleOpenCheckout = (plan: "starter" | "pro" | "scale") => {
     setSelectedPlanForCheckout(plan);
     setCheckoutModalOpen(true);
@@ -105,7 +112,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* 1. Header Navigation */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-white/90 dark:bg-fluxi-graphite/90 border-b border-slate-200 dark:border-fluxi-graphiteBorder">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-fluxi-blue"
+            aria-label="Voltar ao início"
+          >
             <img
               src="/logo/icon-rounded-512.png"
               alt="Fluxi Logo"
@@ -127,7 +139,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Sites • Automações • WhatsApp Bots
               </p>
             </div>
-          </div>
+          </button>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
             <a href="#diferenciais" className="hover:text-fluxi-blue transition-colors">
@@ -503,7 +515,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* 6. Footer */}
       <footer id="seguranca" className="py-12 bg-white dark:bg-fluxi-graphiteCard border-t border-slate-200 dark:border-fluxi-graphiteBorder">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLogoClick}
+            className="flex flex-col sm:flex-row items-center gap-3 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-fluxi-blue"
+            aria-label="Voltar ao início"
+          >
             <img
               src="/logo/icon-rounded-512.png"
               alt="Fluxi Logo"
@@ -518,7 +535,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Fluxi: Sites • Automações • WhatsApp Bots. Conexão 100% oficial com a Meta e conformidade com a LGPD.
               </p>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-6 text-xs text-slate-500">
             <span>Privacidade & LGPD</span>

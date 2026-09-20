@@ -203,7 +203,12 @@ export const App: React.FC = () => {
             {/* Fluxi Brand & Tenant Identity */}
             <div className="flex items-center gap-4">
               {/* Mother Brand Logo & Wordmark */}
-              <div className="flex items-center gap-2.5 pr-4 border-r border-slate-200 dark:border-fluxi-graphiteBorder">
+              <button
+                type="button"
+                onClick={() => setCurrentView("landing")}
+                className="flex items-center gap-2.5 pr-4 border-r border-slate-200 dark:border-fluxi-graphiteBorder text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-fluxi-blue"
+                aria-label="Voltar à landing page"
+              >
                 <img
                   src="/logo/icon-rounded-512.png"
                   alt="Fluxi Logo"
@@ -222,7 +227,7 @@ export const App: React.FC = () => {
                     Sites • Automações • WhatsApp Bots
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Active Tenant Information */}
               <div className="flex items-center gap-2.5">
