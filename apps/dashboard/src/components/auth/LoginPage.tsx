@@ -31,7 +31,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2.5 justify-center mb-8">
           <img
-            src="/logo/icon-rounded-512.png"
+            src="/logo/icon-rounded-light-512.png"
             alt="Fluxi"
             className="w-10 h-10 rounded-lg object-contain"
           />

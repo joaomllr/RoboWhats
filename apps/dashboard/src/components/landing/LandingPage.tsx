@@ -119,7 +119,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             aria-label="Voltar ao início"
           >
             <img
-              src="/logo/icon-rounded-512.png"
+              src="/logo/icon-rounded-light-512.png"
               alt="Fluxi Logo"
               className="w-9 h-9 rounded-xl object-contain shadow-xs"
             />
@@ -522,7 +522,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             aria-label="Voltar ao início"
           >
             <img
-              src="/logo/icon-rounded-512.png"
+              src="/logo/icon-rounded-light-512.png"
               alt="Fluxi Logo"
               className="w-8 h-8 rounded-lg object-contain shadow-xs"
             />

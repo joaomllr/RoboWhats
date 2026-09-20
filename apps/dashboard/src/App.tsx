@@ -210,7 +210,7 @@ export const App: React.FC = () => {
                 aria-label="Voltar à landing page"
               >
                 <img
-                  src="/logo/icon-rounded-512.png"
+                  src="/logo/icon-rounded-light-512.png"
                   alt="Fluxi Logo"
                   className="w-8 h-8 rounded-lg object-contain shadow-xs"
                 />

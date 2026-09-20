@@ -122,7 +122,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             aria-label="Voltar ao início (descarta o progresso)"
           >
             <img
-              src="/logo/icon-rounded-512.png"
+              src="/logo/icon-rounded-light-512.png"
               alt="Fluxi"
               className="w-9 h-9 object-contain rounded-xl shadow-xs"
             />
